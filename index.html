@@ -12,7 +12,12 @@
         
         .nav {display:flex; justify-content:space-between; align-items:center; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;}
         
-        table {border-collapse:collapse; background:white; width:100%; max-width:1580px; margin:10px 0; box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+        /* Tableau serré à gauche */
+        .main-content {
+            display: flex;
+            gap: 20px;
+        }
+        table {border-collapse:collapse; background:white; flex:1; box-shadow:0 4px 12px rgba(0,0,0,0.15);}
         th, td {border:1px solid #666; padding:9px; text-align:center; min-width:75px;}
         th {background:#4a90e2; color:white; font-weight:bold;}
         .name-col {text-align:left; font-weight:bold; background:#c1e1c1; width:290px; padding-left:15px;}
@@ -22,17 +27,18 @@
         .halfA {background:#ab47bc; color:white;}
         .RP {background:#95a5a6; color:white;}
 
-        /* Panneau boutons baissé */
+        /* Boutons à GAUCHE - hors du tableau */
         .action-panel {
             position: fixed;
-            right: 25px;
-            top: 220px;           /* ← Baissé ici */
+            left: 25px;
+            top: 180px;
             background: white;
             border: 2px solid #333;
             padding: 12px;
             width: 230px;
             border-radius: 8px;
             box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            z-index: 100;
         }
         .action-panel button {
             width: 100%;
@@ -57,12 +63,13 @@
     <button id="btnNext">Semaine suivante ►</button>
 </div>
 
-<div style="position:relative; display:flex; gap:20px;">
-    <table id="planningTable" style="flex:1;">
+<div class="main-content">
+    <table id="planningTable">
         <thead id="tableHead"></thead>
         <tbody id="tableBody"></tbody>
     </table>
 
+    <!-- Panneau boutons à GAUCHE -->
     <div class="action-panel">
         <button onclick="resetChanges()" style="background:#3498db; color:white;">Réinitialiser récent</button>
         <button onclick="saveToExcel()" style="background:#000000; color:white;">💾 Sauvegarder</button>
@@ -72,11 +79,11 @@
     </div>
 </div>
 
-<div style="text-align:center; margin:10px; color:#1e40af; font-weight:bold;" id="status">Base chargée - Agents prêts</div>
+<div style="text-align:center; margin:15px; color:#1e40af; font-weight:bold;" id="status">Base chargée - Agents prêts</div>
 
 <script>
 // ==================== BASE AGENTS ====================
-let agents = [ /* tes agents ici */ 
+let agents = [
     "ABREU FRANCK", "ANDERSON SONI NZEYI", "BENARIOUMILIL KENZI", "BEVZ YURII",
     "BORREL NICOLAS", "BRAIKI MOUEZ", "CAMPOS JEAN MICHEL", "CHIROU ADAM",
     "CORS FREDERIC", "COULIBALY LASSANA", "DA CRUZ GEORGES ANTONIO",
@@ -93,25 +100,21 @@ let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 const MOIS_FR = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
-// Mise à jour du titre avec mois
+// Mise à jour titre mois
 function updateTitle() {
     const m1 = MOIS_FR[currentMonday.getMonth()];
     const nextM = new Date(currentMonday);
     nextM.setDate(nextM.getDate() + 13);
     const m2 = MOIS_FR[nextM.getMonth()];
-    const year = currentMonday.getFullYear();
-    
     let title = `Planning Présence - ${m1}`;
     if (m1 !== m2) title += ` → ${m2}`;
-    title += ` ${year}`;
-    
+    title += ` ${currentMonday.getFullYear()}`;
     document.getElementById('mainTitle').textContent = title;
 }
 
-// ==================== TABLEAU ====================
+// Construction tableau (identique)
 function buildTable() {
     updateTitle();
-    // ... (le reste du code tableau reste identique)
     const dates = [];
     for (let i = 0; i < 14; i++) {
         const d = new Date(currentMonday);
@@ -170,7 +173,7 @@ function buildTable() {
     document.getElementById('weekLabel').textContent = `${MOIS_FR[currentMonday.getMonth()]} → ${MOIS_FR[new Date(currentMonday.getTime()+13*86400000).getMonth()]}`;
 }
 
-// ==================== FONCTIONS CLIC (Ctrl / Shift) ====================
+// Fonctions Clic (Ctrl / Shift) - identiques
 function handleCellClick(e, cell, agent, dateStr, colIndex) {
     if (e.ctrlKey) markColumn(colIndex);
     else if (e.shiftKey) markWeek(agent, colIndex);
