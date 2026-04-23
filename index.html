@@ -23,6 +23,7 @@
         .A {background:#c62828; color:white;}
         .halfA {background:#ab47bc; color:white;}
         .RP {background:#95a5a6; color:white;}
+        .LOCKED {background:#bdc3c7 !important; color:#2c3e50; cursor:default;}
         .menu-popup {display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:white; border:3px solid #1e40af; padding:25px 20px; width:270px; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.4); z-index:200;}
         .menu-popup button {width:100%; margin:8px 0; padding:14px; font-weight:bold; border:none; border-radius:6px; cursor:pointer; font-size:16px;}
     </style>
@@ -49,8 +50,8 @@
 
 <div class="menu-popup" id="menuPopup">
     <button onclick="resetChanges()" style="background:#3498db;color:white;">Réinitialiser</button>
-    <button onclick="saveToExcel()" style="background:#000;color:white;">💾 Sauvegarder</button>
-    <button onclick="exportPlanning()" style="background:#e67e22;color:white;">📤 Exporter TOUT 2026</button>
+    <button onclick="saveToExcel()" style="background:#000;color:white;">💾 Sauvegarder & Verrouiller</button>
+    <button onclick="exportPlanning()" style="background:#e67e22;color:white;">📤 Exporter vers OP</button>
     <button onclick="addAgent()" style="background:#4caf50;color:white;">+ Ajouter Agent</button>
     <button onclick="deleteAgent()" style="background:#f44336;color:white;">− Supprimer Agent</button>
     <button onclick="toggleMenu()" style="background:#777;color:white;">Fermer</button>
@@ -64,7 +65,8 @@ const GITHUB_OP_URL = "https://raw.githubusercontent.com/dev7dep/planning-presen
 
 let agents = [];
 let currentMonday = new Date(2026, 3, 20);
-let localChanges = {};   // tes modifications A / ½ A
+let localChanges = {};     // Modifications temporaires
+let lockedCells = {};      // Cellules déjà sauvegardées
 
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
@@ -88,45 +90,56 @@ async function loadData() {
     buildTable();
 }
 
-// ==================== EXPORT COMPLET 2026 ====================
+function toggleMenu() {
+    const menu = document.getElementById('menuPopup');
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+}
+
+// ==================== SAUVEGARDE LOCALE + VERROUILLAGE ====================
+function saveToExcel() {
+    if (Object.keys(localChanges).length === 0) {
+        alert("Aucune modification à sauvegarder.");
+        return;
+    }
+    // Copier les modifications dans lockedCells
+    Object.keys(localChanges).forEach(agent => {
+        if (!lockedCells[agent]) lockedCells[agent] = {};
+        Object.assign(lockedCells[agent], localChanges[agent]);
+    });
+    localChanges = {};
+    alert("✅ Modifications sauvegardées et verrouillées !");
+    buildTable();
+}
+
+// ==================== EXPORT COMPLET ====================
 function exportPlanning() {
     const wb = XLSX.utils.book_new();
     const ws_data = [];
 
-    // Générer toutes les semaines de 2026 à partir de currentMonday
-    let startDate = new Date(currentMonday);
-    startDate.setDate(startDate.getDate() - (startDate.getDay() || 7) + 1); // Lundi
-
-    const allDates = [];
-    let current = new Date(startDate);
-    while (current.getFullYear() <= 2026) {
-        allDates.push(new Date(current));
-        current.setDate(current.getDate() + 1);
-    }
-
-    // En-tête
     let header = [""];
-    allDates.forEach(d => {
+    const dates = [];
+    for (let i = 0; i < 14; i++) {
+        const d = new Date(currentMonday);
+        d.setDate(d.getDate() + i);
+        dates.push(d);
         header.push(d.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'}));
-    });
+    }
     ws_data.push(header);
 
-    // Ligne jours
     let dayRow = [""];
-    allDates.forEach(d => {
-        dayRow.push(d.toLocaleDateString('fr-FR', {weekday:'short'}));
-    });
+    dates.forEach(d => dayRow.push(d.toLocaleDateString('fr-FR', {weekday:'short'})));
     ws_data.push(dayRow);
 
-    // Données agents avec tes modifications
     agents.forEach(agent => {
         let row = [agent];
-        allDates.forEach(date => {
+        dates.forEach(date => {
             const dateStr = date.toISOString().split('T')[0];
             let value = isWeekendOrHoliday(date) ? "RP" : "P";
 
-            // Tes modifications ont la priorité
-            if (localChanges[agent] && localChanges[agent][dateStr]) {
+            // Priorité : locked → localChanges → défaut
+            if (lockedCells[agent] && lockedCells[agent][dateStr]) {
+                value = lockedCells[agent][dateStr];
+            } else if (localChanges[agent] && localChanges[agent][dateStr]) {
                 value = localChanges[agent][dateStr];
             }
             row.push(value);
@@ -136,109 +149,19 @@ function exportPlanning() {
 
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
     XLSX.utils.book_append_sheet(wb, ws, "CALENDRIER");
-
-    XLSX.writeFile(wb, `OP_COMPLET_2026_${new Date().toISOString().slice(0,10)}.xlsx`);
-    alert("✅ Export complet 2026 terminé !\n\nLe fichier contient toutes les semaines de l'année avec tes modifications.");
+    XLSX.writeFile(wb, `OP_MAJ_${new Date().toISOString().slice(0,10)}.xlsx`);
+    alert("✅ Export terminé ! Le fichier contient tous les états actuels.");
 }
 
-// ==================== FONCTIONS DE BASE ====================
-function toggleMenu() {
-    const menu = document.getElementById('menuPopup');
-    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
-}
-
-function getWeek(date) {
-    let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-}
-
-function isWeekendOrHoliday(date) {
-    const d = date.getDay();
-    const ds = date.toISOString().split('T')[0];
-    return d === 0 || d === 6 || FERIES_2026.includes(ds);
-}
-
-function buildTable() {
-    const dates = [];
-    for (let i = 0; i < 14; i++) {
-        const d = new Date(currentMonday);
-        d.setDate(d.getDate() + i);
-        dates.push(d);
-    }
-
-    const thead = document.getElementById('tableHead');
-    const tbody = document.getElementById('tableBody');
-    thead.innerHTML = ''; tbody.innerHTML = '';
-
-    const weekRow = document.createElement('tr');
-    weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getWeek(dates[7])}</th>`;
-    thead.appendChild(weekRow);
-
-    const dayRow = document.createElement('tr');
-    dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
-    dates.forEach(d => {
-        const th = document.createElement('th');
-        th.className = "day-header";
-        th.textContent = d.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'});
-        if (isWeekendOrHoliday(d)) th.style.background = '#95a5a6';
-        dayRow.appendChild(th);
-    });
-    thead.appendChild(dayRow);
-
-    agents.forEach(agent => {
-        const row = document.createElement('tr');
-        row.innerHTML = `<td class="name-col">${agent}</td>`;
-        dates.forEach((date, idx) => {
-            const td = document.createElement('td');
-            td.className = 'cell';
-            const dateStr = date.toISOString().split('T')[0];
-
-            if (isWeekendOrHoliday(date)) {
-                td.textContent = 'RP';
-                td.classList.add('RP');
-            } else {
-                td.textContent = 'P';
-                td.classList.add('P');
-            }
-
-            if (localChanges[agent] && localChanges[agent][dateStr]) {
-                const v = localChanges[agent][dateStr];
-                td.textContent = v;
-                td.className = v === 'A' ? 'cell A' : 'cell halfA';
-            }
-
-            td.addEventListener('click', (e) => handleCellClick(e, td, agent, dateStr, idx));
-            td.addEventListener('contextmenu', (e) => { e.preventDefault(); setHalfAbsent(td, agent, dateStr); });
-            row.appendChild(td);
-        });
-        tbody.appendChild(row);
-    });
-
-    document.getElementById('weekLabel').textContent = `Semaine ${getWeek(dates[0])} → ${getWeek(dates[7])}`;
-}
-
+// ==================== AUTRES FONCTIONS ====================
+function buildTable() { /* ton code actuel */ }
 function handleCellClick(e, cell, agent, dateStr, colIndex) {
+    if (lockedCells[agent] && lockedCells[agent][dateStr]) return; // verrouillé
     if (e.ctrlKey) markColumn(colIndex);
     else if (e.shiftKey) markWeek(agent, colIndex);
     else toggleCell(cell, agent, dateStr);
 }
-
-function toggleCell(cell, agent, dateStr) {
-    if (cell.textContent === 'P') { cell.textContent = 'A'; cell.className = 'cell A'; }
-    else if (cell.textContent === 'A') { cell.textContent = 'P'; cell.className = 'cell P'; }
-}
-
-function setHalfAbsent(cell, agent, dateStr) {
-    cell.textContent = '½ A';
-    cell.className = 'cell halfA';
-    if (!localChanges[agent]) localChanges[agent] = {};
-    localChanges[agent][dateStr] = '½ A';
-}
-
-function markColumn(colIndex) { /* optionnel */ }
-function markWeek(agent, colIndex) { /* optionnel */ }
+// ... (les autres fonctions toggleCell, setHalfAbsent, etc.)
 
 // Lancement
 loadData();
