@@ -22,17 +22,17 @@
         .halfA {background:#ab47bc; color:white;}
         .RP {background:#95a5a6; color:white;}
 
-        /* Panneau boutons comme au début */
+        /* Panneau boutons baissé */
         .action-panel {
             position: fixed;
             right: 25px;
-            top: 140px;
+            top: 220px;           /* ← Baissé ici */
             background: white;
             border: 2px solid #333;
-            padding: 10px;
+            padding: 12px;
             width: 230px;
-            border-radius: 6px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            border-radius: 8px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
         }
         .action-panel button {
             width: 100%;
@@ -53,7 +53,7 @@
 
 <div class="nav">
     <button id="btnPrev">◄ Semaine précédente</button>
-    <span id="weekLabel" style="font-size:22px; font-weight:bold;">Semaine 17 → 18</span>
+    <span id="weekLabel" style="font-size:22px; font-weight:bold;">Avril → Mai 2026</span>
     <button id="btnNext">Semaine suivante ►</button>
 </div>
 
@@ -63,7 +63,6 @@
         <tbody id="tableBody"></tbody>
     </table>
 
-    <!-- Panneau Actions - Style identique au Tkinter -->
     <div class="action-panel">
         <button onclick="resetChanges()" style="background:#3498db; color:white;">Réinitialiser récent</button>
         <button onclick="saveToExcel()" style="background:#000000; color:white;">💾 Sauvegarder</button>
@@ -77,7 +76,7 @@
 
 <script>
 // ==================== BASE AGENTS ====================
-let agents = [
+let agents = [ /* tes agents ici */ 
     "ABREU FRANCK", "ANDERSON SONI NZEYI", "BENARIOUMILIL KENZI", "BEVZ YURII",
     "BORREL NICOLAS", "BRAIKI MOUEZ", "CAMPOS JEAN MICHEL", "CHIROU ADAM",
     "CORS FREDERIC", "COULIBALY LASSANA", "DA CRUZ GEORGES ANTONIO",
@@ -94,12 +93,12 @@ let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 const MOIS_FR = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
-// ==================== MISE À JOUR TITRE MOIS ====================
+// Mise à jour du titre avec mois
 function updateTitle() {
     const m1 = MOIS_FR[currentMonday.getMonth()];
-    const nextMonth = new Date(currentMonday);
-    nextMonth.setDate(nextMonth.getDate() + 13);
-    const m2 = MOIS_FR[nextMonth.getMonth()];
+    const nextM = new Date(currentMonday);
+    nextM.setDate(nextM.getDate() + 13);
+    const m2 = MOIS_FR[nextM.getMonth()];
     const year = currentMonday.getFullYear();
     
     let title = `Planning Présence - ${m1}`;
@@ -111,6 +110,8 @@ function updateTitle() {
 
 // ==================== TABLEAU ====================
 function buildTable() {
+    updateTitle();
+    // ... (le reste du code tableau reste identique)
     const dates = [];
     for (let i = 0; i < 14; i++) {
         const d = new Date(currentMonday);
@@ -118,18 +119,14 @@ function buildTable() {
         dates.push(d);
     }
 
-    updateTitle();
-
     const thead = document.getElementById('tableHead');
     const tbody = document.getElementById('tableBody');
     thead.innerHTML = ''; tbody.innerHTML = '';
 
-    // En-tête semaines
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" style="background:#d0d7e0">Semaine ${getWeek(dates[0])}</th><th colspan="7" style="background:#d0d7e0">Semaine ${getWeek(dates[7])}</th>`;
     thead.appendChild(weekRow);
 
-    // En-tête jours
     const dayRow = document.createElement('tr');
     dayRow.innerHTML = `<th class="name-col">Nom</th>`;
     dates.forEach(d => {
@@ -140,7 +137,6 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Lignes
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -171,10 +167,10 @@ function buildTable() {
         tbody.appendChild(row);
     });
 
-    document.getElementById('weekLabel').textContent = `Semaine ${getWeek(dates[0])} → ${getWeek(dates[7])}`;
+    document.getElementById('weekLabel').textContent = `${MOIS_FR[currentMonday.getMonth()]} → ${MOIS_FR[new Date(currentMonday.getTime()+13*86400000).getMonth()]}`;
 }
 
-// ==================== FONCTIONS CLIC ====================
+// ==================== FONCTIONS CLIC (Ctrl / Shift) ====================
 function handleCellClick(e, cell, agent, dateStr, colIndex) {
     if (e.ctrlKey) markColumn(colIndex);
     else if (e.shiftKey) markWeek(agent, colIndex);
