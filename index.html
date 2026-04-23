@@ -6,19 +6,38 @@
     <title>Planning Présence 2026</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body {font-family: Calibri, Arial, sans-serif; background:#f0f0f0; margin:0; padding:10px;}
+        body {font-family: Calibri, Arial, sans-serif; background:#f0f0f0; margin:0; padding:0;}
         .header {text-align:center; background:#fff; padding:15px; border-bottom:3px solid #1e40af; position:relative;}
         .title {font-size:32px; font-weight:bold; color:#1e40af; margin:0;}
         
-        .menu-icon {position:absolute; right:25px; top:18px; font-size:34px; cursor:pointer; color:#1e40af;}
-        .nav {display:flex; justify-content:space-between; align-items:center; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;}
+        .menu-icon {position:absolute; right:25px; top:18px; font-size:34px; cursor:pointer; color:#1e40af; z-index:100;}
         
-        .main-content {display:flex; gap:20px;}
+        .nav {display:flex; justify-content:space-between; align-items:center; background:#d0d7e0; padding:12px 20px; margin:0; border-bottom:1px solid #999;}
+        
+        .button-bar {
+            background:#f8f9fa;
+            padding:8px 20px;
+            display:flex;
+            gap:8px;
+            border-bottom:1px solid #ddd;
+            flex-wrap:wrap;
+        }
+        .button-bar button {
+            padding:8px 16px;
+            font-weight:bold;
+            border:none;
+            border-radius:4px;
+            cursor:pointer;
+            font-size:14px;
+        }
+
+        .main-content {display:flex; gap:20px; padding:10px;}
         table {border-collapse:collapse; background:white; flex:1; box-shadow:0 4px 12px rgba(0,0,0,0.15);}
-        th, td {border:1px solid #666; padding:9px; text-align:center; min-width:75px;}
+        
+        th, td {border:1px solid #666; padding:8px; text-align:center; min-width:75px;}
         
         .week-header {position:sticky; top:0; z-index:20; background:#d0d7e0 !important; color:black; height:48px;}
-        .day-header {position:sticky; top:48px; z-index:30; background:#4a90e2 !important;}
+        .day-header {position:sticky; top:48px; z-index:30; background:#4a90e2 !important; color:white;}
         .name-header {background:#8B0000 !important; color:white !important; font-weight:bold; width:290px; position:sticky; left:0; z-index:40;}
         
         .name-col {text-align:left; font-weight:bold; background:#c1e1c1; width:290px; padding-left:15px;}
@@ -42,6 +61,15 @@
     <button id="btnNext">Semaine suivante ►</button>
 </div>
 
+<div class="button-bar">
+    <button onclick="resetChanges()" style="background:#3498db;color:white;">Réinitialiser</button>
+    <button onclick="saveToExcel()" style="background:#000;color:white;">💾 Sauvegarder</button>
+    <button onclick="exportPlanning()" style="background:#e67e22;color:white;">📤 Exporter</button>
+    <button onclick="addAgent()" style="background:#4caf50;color:white;">+ Ajouter</button>
+    <button onclick="deleteAgent()" style="background:#f44336;color:white;">− Supprimer</button>
+    <button onclick="toggleMenu()" style="background:#777;color:white;">Fermer Menu</button>
+</div>
+
 <div class="main-content">
     <table id="planningTable">
         <thead id="tableHead"></thead>
@@ -49,50 +77,15 @@
     </table>
 </div>
 
-<div class="menu-popup" id="menuPopup">
-    <button onclick="resetChanges()" style="background:#3498db;color:white;">Réinitialiser</button>
-    <button onclick="saveToExcel()" style="background:#000;color:white;">💾 Sauvegarder</button>
-    <button onclick="exportPlanning()" style="background:#e67e22;color:white;">📤 Exporter</button>
-    <button onclick="addAgent()" style="background:#4caf50;color:white;">+ Ajouter</button>
-    <button onclick="deleteAgent()" style="background:#f44336;color:white;">− Supprimer</button>
-    <button onclick="toggleMenu()" style="background:#777;color:white;">Fermer</button>
-</div>
-
 <script>
-// ==================== VARIABLES ====================
-let agents = [];
+// ==================== VARIABLES & FONCTIONS ====================
+let agents = ["ABREU FRANCK", "ANDERSON SONI NZEYI", /* ajoute tous tes agents ici */ ];
 let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
-// ==================== CHARGEMENT OP.XLSX DEPUIS GITHUB ====================
-async function loadOPfromGitHub() {
-    try {
-        const url = "https://raw.githubusercontent.com/ton-username/ton-repo/main/OP.xlsx"; // ← CHANGE CE LIEN
-        const resp = await fetch(url);
-        const arrayBuffer = await resp.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer, {type: 'array'});
-        const sheet = workbook.Sheets["CALENDRIER"] || workbook.Sheets[workbook.SheetNames[0]];
-        
-        const json = XLSX.utils.sheet_to_json(sheet, {header:1});
-        
-        // Charger les agents (colonne A à partir de la ligne 5 environ)
-        agents = [];
-        for (let i = 4; i < json.length; i++) {
-            if (json[i][0]) agents.push(json[i][0].toString().trim());
-        }
-        
-        console.log("✅ Agents chargés :", agents.length);
-    } catch(e) {
-        console.log("⚠️ Impossible de charger OP.xlsx, utilisation des agents par défaut");
-        agents = ["ABREU FRANCK", "ANDERSON SONI NZEYI", /* ... ta liste complète ... */ ];
-    }
-}
-
-// ==================== FONCTIONS ====================
 function toggleMenu() {
-    const menu = document.getElementById('menuPopup');
-    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+    alert("Menu principal (à développer si tu veux plus d'options)");
 }
 
 function getWeek(date) {
@@ -137,7 +130,7 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Lignes Agents
+    // Agents
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -147,7 +140,6 @@ function buildTable() {
             td.className = 'cell';
             const dateStr = date.toISOString().split('T')[0];
 
-            // RP prioritaire (week-end, férié ou déjà dans OP)
             if (isWeekendOrHoliday(date)) {
                 td.textContent = 'RP';
                 td.classList.add('RP');
@@ -156,7 +148,6 @@ function buildTable() {
                 td.classList.add('P');
             }
 
-            // Appliquer les modifications locales
             if (localChanges[agent] && localChanges[agent][dateStr]) {
                 const v = localChanges[agent][dateStr];
                 td.textContent = v;
@@ -173,52 +164,35 @@ function buildTable() {
     document.getElementById('weekLabel').textContent = `Semaine ${getWeek(dates[0])} → ${getWeek(dates[7])}`;
 }
 
-// ==================== GESTION CLICS ====================
+// Fonctions clic (identiques à avant)
 function handleCellClick(e, cell, agent, dateStr, colIndex) {
     if (e.ctrlKey) markColumn(colIndex);
     else if (e.shiftKey) markWeek(agent, colIndex);
     else toggleCell(cell, agent, dateStr);
 }
-
 function toggleCell(cell, agent, dateStr) {
     if (cell.textContent === 'P') { cell.textContent = 'A'; cell.className = 'cell A'; }
     else if (cell.textContent === 'A') { cell.textContent = 'P'; cell.className = 'cell P'; }
     updateLocal(agent, dateStr, cell.textContent);
 }
-
 function setHalfAbsent(cell, agent, dateStr) {
     cell.textContent = '½ A';
     cell.className = 'cell halfA';
     updateLocal(agent, dateStr, '½ A');
 }
-
 function updateLocal(agent, dateStr, value) {
     if (!localChanges[agent]) localChanges[agent] = {};
     localChanges[agent][dateStr] = value;
 }
+function markColumn(colIndex) { /* code identique */ }
+function markWeek(agent, colIndex) { /* code identique */ }
 
-function markColumn(colIndex) { /* même code */ }
-function markWeek(agent, colIndex) { /* même code */ }
-
-// Navigation (corrigée)
-document.getElementById('btnPrev').onclick = () => {
-    currentMonday.setDate(currentMonday.getDate() - 7);
-    buildTable();
-};
-document.getElementById('btnNext').onclick = () => {
-    currentMonday.setDate(currentMonday.getDate() + 7);
-    buildTable();
-};
-
-// Boutons menu
-function resetChanges() { if(confirm("Réinitialiser ?")) { localChanges = {}; buildTable(); } }
-function saveToExcel() { alert("💾 Sauvegarde simulée"); }
-function exportPlanning() { alert("📤 Export simulé"); }
-function addAgent() { let n = prompt("Nom ?"); if(n) { agents.push(n); buildTable(); }}
-function deleteAgent() { let n = prompt("Nom à supprimer ?"); if(n) { agents = agents.filter(a => a !== n); buildTable(); }}
+// Navigation
+document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate()-7); buildTable(); };
+document.getElementById('btnNext').onclick = () => { currentMonday.setDate(currentMonday.getDate()+7); buildTable(); };
 
 // Lancement
-loadOPfromGitHub().then(() => buildTable());
+buildTable();
 </script>
 </body>
 </html>
