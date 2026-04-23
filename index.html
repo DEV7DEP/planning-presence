@@ -12,33 +12,25 @@
         
         .nav {display:flex; justify-content:space-between; align-items:center; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;}
         
-        table {border-collapse:collapse; background:white; width:100%; max-width:1580px; margin:10px 0; box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+        /* Tableau serré à gauche */
+        .main-content {
+            display: flex;
+            gap: 20px;
+        }
+        table {border-collapse:collapse; background:white; flex:1; box-shadow:0 4px 12px rgba(0,0,0,0.15);}
         th, td {border:1px solid #666; padding:9px; text-align:center; min-width:75px;}
         th {background:#4a90e2; color:white; font-weight:bold;}
-        
-        /* Cellule rouge en haut à gauche */
-        .name-header {
-            background:#c62828 !important; 
-            color:white !important; 
-            font-weight:bold;
-            width:290px;
-        }
-        .name-col {
-            text-align:left; 
-            font-weight:bold; 
-            background:#c1e1c1; 
-            width:290px; 
-            padding-left:15px;
-        }
+        .name-col {text-align:left; font-weight:bold; background:#c1e1c1; width:290px; padding-left:15px;}
         .cell {cursor:pointer; font-weight:bold; height:50px;}
         .P {background:#c1e1c1; color:black;}
         .A {background:#c62828; color:white;}
         .halfA {background:#ab47bc; color:white;}
         .RP {background:#95a5a6; color:white;}
 
+        /* Boutons à GAUCHE - hors du tableau */
         .action-panel {
             position: fixed;
-            right: 25px;
+            left: 25px;
             top: 180px;
             background: white;
             border: 2px solid #333;
@@ -46,6 +38,7 @@
             width: 230px;
             border-radius: 8px;
             box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            z-index: 100;
         }
         .action-panel button {
             width: 100%;
@@ -70,12 +63,13 @@
     <button id="btnNext">Semaine suivante ►</button>
 </div>
 
-<div style="position:relative; display:flex; gap:20px;">
-    <table id="planningTable" style="flex:1;">
+<div class="main-content">
+    <table id="planningTable">
         <thead id="tableHead"></thead>
         <tbody id="tableBody"></tbody>
     </table>
 
+    <!-- Panneau boutons à GAUCHE -->
     <div class="action-panel">
         <button onclick="resetChanges()" style="background:#3498db; color:white;">Réinitialiser récent</button>
         <button onclick="saveToExcel()" style="background:#000000; color:white;">💾 Sauvegarder</button>
@@ -106,6 +100,7 @@ let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 const MOIS_FR = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
+// Mise à jour titre mois
 function updateTitle() {
     const m1 = MOIS_FR[currentMonday.getMonth()];
     const nextM = new Date(currentMonday);
@@ -117,6 +112,7 @@ function updateTitle() {
     document.getElementById('mainTitle').textContent = title;
 }
 
+// Construction tableau (identique)
 function buildTable() {
     updateTitle();
     const dates = [];
@@ -130,14 +126,12 @@ function buildTable() {
     const tbody = document.getElementById('tableBody');
     thead.innerHTML = ''; tbody.innerHTML = '';
 
-    // Ligne Semaines
     const weekRow = document.createElement('tr');
-    weekRow.innerHTML = `<th class="name-col" style="background:#c1e1c1;"></th><th colspan="7" style="background:#d0d7e0">Semaine ${getWeek(dates[0])}</th><th colspan="7" style="background:#d0d7e0">Semaine ${getWeek(dates[7])}</th>`;
+    weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" style="background:#d0d7e0">Semaine ${getWeek(dates[0])}</th><th colspan="7" style="background:#d0d7e0">Semaine ${getWeek(dates[7])}</th>`;
     thead.appendChild(weekRow);
 
-    // Ligne Jours + Cellule rouge en haut à gauche
     const dayRow = document.createElement('tr');
-    dayRow.innerHTML = `<th class="name-header">Nom</th>`;
+    dayRow.innerHTML = `<th class="name-col">Nom</th>`;
     dates.forEach(d => {
         const th = document.createElement('th');
         th.textContent = d.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'});
@@ -146,7 +140,6 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Lignes agents
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -180,7 +173,7 @@ function buildTable() {
     document.getElementById('weekLabel').textContent = `${MOIS_FR[currentMonday.getMonth()]} → ${MOIS_FR[new Date(currentMonday.getTime()+13*86400000).getMonth()]}`;
 }
 
-// ==================== FONCTIONS CLIC ====================
+// Fonctions Clic (Ctrl / Shift) - identiques
 function handleCellClick(e, cell, agent, dateStr, colIndex) {
     if (e.ctrlKey) markColumn(colIndex);
     else if (e.shiftKey) markWeek(agent, colIndex);
