@@ -8,30 +8,31 @@
     <style>
         body {font-family: Calibri, Arial, sans-serif; background:#f0f0f0; margin:0; padding:10px;}
         .header {text-align:center; background:#fff; padding:15px; border-bottom:3px solid #1e40af;}
-        .title {font-size:34px; font-weight:bold; color:#1e40af; margin:0;}
+        .title {font-size:32px; font-weight:bold; color:#1e40af; margin:0;}
         
         .nav {display:flex; justify-content:space-between; align-items:center; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;}
         
         table {border-collapse:collapse; background:white; width:100%; max-width:1580px; margin:10px 0; box-shadow:0 4px 12px rgba(0,0,0,0.15);}
         th, td {border:1px solid #666; padding:9px; text-align:center; min-width:75px;}
         th {background:#4a90e2; color:white; font-weight:bold;}
-        .name-col {text-align:left; font-weight:bold; background:#c1e1c1; width:280px; padding-left:15px;}
+        .name-col {text-align:left; font-weight:bold; background:#c1e1c1; width:290px; padding-left:15px;}
         .cell {cursor:pointer; font-weight:bold; height:50px;}
         .P {background:#c1e1c1; color:black;}
         .A {background:#c62828; color:white;}
         .halfA {background:#ab47bc; color:white;}
         .RP {background:#95a5a6; color:white;}
 
+        /* Panneau boutons comme au début */
         .action-panel {
             position: fixed;
-            right: 20px;
+            right: 25px;
             top: 140px;
             background: white;
             border: 2px solid #333;
-            padding: 12px;
+            padding: 10px;
             width: 230px;
-            border-radius: 8px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            border-radius: 6px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
         .action-panel button {
             width: 100%;
@@ -47,7 +48,7 @@
 <body>
 
 <div class="header">
-    <h1 class="title">Planning Présence 2026</h1>
+    <h1 class="title" id="mainTitle">Planning Présence - Avril → Mai 2026</h1>
 </div>
 
 <div class="nav">
@@ -62,20 +63,20 @@
         <tbody id="tableBody"></tbody>
     </table>
 
-    <!-- Panneau Actions à droite (comme ton Tkinter) -->
+    <!-- Panneau Actions - Style identique au Tkinter -->
     <div class="action-panel">
         <button onclick="resetChanges()" style="background:#3498db; color:white;">Réinitialiser récent</button>
-        <button onclick="saveToExcel()" style="background:#000; color:white;">💾 Sauvegarder</button>
+        <button onclick="saveToExcel()" style="background:#000000; color:white;">💾 Sauvegarder</button>
         <button onclick="exportPlanning()" style="background:#e67e22; color:white;">📤 Exporter</button>
         <button onclick="addAgent()" style="background:#4caf50; color:white;">+ Ajouter Agent</button>
         <button onclick="deleteAgent()" style="background:#f44336; color:white;">− Supprimer Agent</button>
     </div>
 </div>
 
-<div style="text-align:center; margin:10px; color:#1e40af; font-weight:bold;" id="status">Base chargée - 35 agents</div>
+<div style="text-align:center; margin:10px; color:#1e40af; font-weight:bold;" id="status">Base chargée - Agents prêts</div>
 
 <script>
-// ==================== BASE AGENTS (intégrée) ====================
+// ==================== BASE AGENTS ====================
 let agents = [
     "ABREU FRANCK", "ANDERSON SONI NZEYI", "BENARIOUMILIL KENZI", "BEVZ YURII",
     "BORREL NICOLAS", "BRAIKI MOUEZ", "CAMPOS JEAN MICHEL", "CHIROU ADAM",
@@ -91,6 +92,22 @@ let agents = [
 let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
+const MOIS_FR = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+
+// ==================== MISE À JOUR TITRE MOIS ====================
+function updateTitle() {
+    const m1 = MOIS_FR[currentMonday.getMonth()];
+    const nextMonth = new Date(currentMonday);
+    nextMonth.setDate(nextMonth.getDate() + 13);
+    const m2 = MOIS_FR[nextMonth.getMonth()];
+    const year = currentMonday.getFullYear();
+    
+    let title = `Planning Présence - ${m1}`;
+    if (m1 !== m2) title += ` → ${m2}`;
+    title += ` ${year}`;
+    
+    document.getElementById('mainTitle').textContent = title;
+}
 
 // ==================== TABLEAU ====================
 function buildTable() {
@@ -100,6 +117,8 @@ function buildTable() {
         d.setDate(d.getDate() + i);
         dates.push(d);
     }
+
+    updateTitle();
 
     const thead = document.getElementById('tableHead');
     const tbody = document.getElementById('tableBody');
@@ -121,7 +140,7 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Lignes agents
+    // Lignes
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -155,6 +174,7 @@ function buildTable() {
     document.getElementById('weekLabel').textContent = `Semaine ${getWeek(dates[0])} → ${getWeek(dates[7])}`;
 }
 
+// ==================== FONCTIONS CLIC ====================
 function handleCellClick(e, cell, agent, dateStr, colIndex) {
     if (e.ctrlKey) markColumn(colIndex);
     else if (e.shiftKey) markWeek(agent, colIndex);
