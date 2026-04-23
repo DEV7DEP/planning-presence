@@ -48,56 +48,106 @@
 </div>
 
 <div class="menu-popup" id="menuPopup">
-    <button onclick="resetChanges()" style="background:#3498db;color:white;">Réinitialiser récent</button>
-    <button onclick="saveToExcel()" style="background:#000000;color:white;">💾 Sauvegarder</button>
-    <button onclick="exportPlanning()" style="background:#e67e22;color:white;">📤 Exporter</button>
+    <button onclick="resetChanges()" style="background:#3498db;color:white;">Réinitialiser</button>
+    <button onclick="saveToExcel()" style="background:#000;color:white;">💾 Sauvegarder</button>
+    <button onclick="exportPlanning()" style="background:#e67e22;color:white;">📤 Exporter vers OP</button>
     <button onclick="addAgent()" style="background:#4caf50;color:white;">+ Ajouter Agent</button>
     <button onclick="deleteAgent()" style="background:#f44336;color:white;">− Supprimer Agent</button>
-    <button onclick="toggleMenu()" style="background:#777;color:white;margin-top:12px;">Fermer</button>
+    <button onclick="toggleMenu()" style="background:#777;color:white;">Fermer</button>
 </div>
 
 <div style="text-align:center; margin:15px; color:#1e40af; font-weight:bold;" id="status">Prêt</div>
 
 <script>
 // ==================== VARIABLES ====================
-let agents = [
-    "ABREU FRANCK", "ANDERSON SONI NZEYI", "BENARIOUMILIL KENZI", "BEVZ YURII",
-    "BORREL NICOLAS", "BRAIKI MOUEZ", "CAMPOS JEAN MICHEL", "CHIROU ADAM",
-    "CORS FREDERIC", "COULIBALY LASSANA", "DA CRUZ GEORGES ANTONIO",
-    "DELCUEILLERIE DYLAN", "DESCAMPS JULIEN", "DOMINGOS TONY", "DUMONT JOEL",
-    "EXT PEYRON FABRICE", "GEOFFRAY AURELIEN", "GRANDJEAN JEAN-BAPTISTE",
-    "LOULOU ABDELRANI", "MHEMEDI HISHAM", "MOZIN CHARLIE", "PARADIS BENOIT",
-    "REZLI SMAÏN", "SEON RAPHAEL", "SIDIBE BAKARY", "TECHER TEDDY",
-    "TEISSEDRE ERIC", "THO CHRISTOPHER", "TRIPIER ARTHUR", "VERBRUGGE ALEXIS",
-    "VEYRIER PATRICK"
-];
-
+let agents = [];
 let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
-// ==================== MENU ====================
+// ==================== CHARGEMENT OP.XLSX ====================
+async function loadData() {
+    document.getElementById('status').textContent = "⏳ Chargement OP.xlsx...";
+    try {
+        const resp = await fetch("https://raw.githubusercontent.com/dev7dep/planning-presence/main/OP.xlsx");
+        const ab = await resp.arrayBuffer();
+        const wb = XLSX.read(ab, {type:'array'});
+        const json = XLSX.utils.sheet_to_json(wb.Sheets["CALENDRIER"], {header:1});
+
+        agents = [];
+        for (let i = 4; i < json.length; i++) {
+            if (json[i] && json[i][0]) agents.push(String(json[i][0]).trim());
+        }
+        document.getElementById('status').innerHTML = `✅ ${agents.length} agents chargés`;
+    } catch(e) {
+        document.getElementById('status').innerHTML = "❌ Erreur chargement";
+    }
+    buildTable();
+}
+
+// ==================== EXPORT AU FORMAT OP.XLSX ====================
+function exportPlanning() {
+    const wb = XLSX.utils.book_new();
+    const ws_data = [];
+
+    // En-tête dates
+    let header = [""];
+    const dates = [];
+    for (let i = 0; i < 14; i++) {
+        const d = new Date(currentMonday);
+        d.setDate(d.getDate() + i);
+        dates.push(d);
+        header.push(d.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'}));
+    }
+    ws_data.push(header);
+
+    // Ligne jours (comme dans ton fichier)
+    let dayRow = [""];
+    dates.forEach(d => {
+        dayRow.push(d.toLocaleDateString('fr-FR', {weekday:'short'}));
+    });
+    ws_data.push(dayRow);
+
+    // Données agents
+    agents.forEach(agent => {
+        let row = [agent];
+        dates.forEach(date => {
+            const dateStr = date.toISOString().split('T')[0];
+            let value = isWeekendOrHoliday(date) ? 'RP' : 'P';
+            if (localChanges[agent] && localChanges[agent][dateStr]) {
+                value = localChanges[agent][dateStr];
+            }
+            row.push(value);
+        });
+        ws_data.push(row);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    XLSX.utils.book_append_sheet(wb, ws, "CALENDRIER");
+
+    XLSX.writeFile(wb, `OP_MAJ_${new Date().toISOString().slice(0,10)}.xlsx`);
+    alert("✅ Fichier exporté avec succès !\n\nRemplace ton OP.xlsx par ce fichier sur GitHub.");
+}
+
+// ==================== FONCTIONS DE BASE ====================
 function toggleMenu() {
     const menu = document.getElementById('menuPopup');
     menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
 }
 
-// ==================== BOUTONS MENU ====================
-function resetChanges() { 
-    if(confirm("Réinitialiser tout ?")) { localChanges = {}; buildTable(); } 
-}
-function saveToExcel() { alert("💾 Sauvegarde simulée"); }
-function exportPlanning() { alert("📤 Export simulé"); }
-function addAgent() { 
-    let n = prompt("Nom du nouvel agent ?"); 
-    if(n){ agents.push(n); buildTable(); } 
-}
-function deleteAgent() { 
-    let n = prompt("Nom à supprimer ?"); 
-    if(n){ agents = agents.filter(a => a !== n); buildTable(); } 
+function getWeek(date) {
+    let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 }
 
-// ==================== TABLEAU ====================
+function isWeekendOrHoliday(date) {
+    const d = date.getDay();
+    const ds = date.toISOString().split('T')[0];
+    return d === 0 || d === 6 || FERIES_2026.includes(ds);
+}
+
 function buildTable() {
     const dates = [];
     for (let i = 0; i < 14; i++) {
@@ -108,15 +158,12 @@ function buildTable() {
 
     const thead = document.getElementById('tableHead');
     const tbody = document.getElementById('tableBody');
-    thead.innerHTML = ''; 
-    tbody.innerHTML = '';
+    thead.innerHTML = ''; tbody.innerHTML = '';
 
-    // Ligne Semaines
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getWeek(dates[7])}</th>`;
     thead.appendChild(weekRow);
 
-    // Ligne Jours
     const dayRow = document.createElement('tr');
     dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
     dates.forEach(d => {
@@ -128,11 +175,9 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Lignes Agents
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
-
         dates.forEach((date, idx) => {
             const td = document.createElement('td');
             td.className = 'cell';
@@ -156,19 +201,6 @@ function buildTable() {
     document.getElementById('weekLabel').textContent = `Semaine ${getWeek(dates[0])} → ${getWeek(dates[7])}`;
 }
 
-function getWeek(date) {
-    let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-}
-
-function isWeekendOrHoliday(date) {
-    const d = date.getDay();
-    const ds = date.toISOString().split('T')[0];
-    return d === 0 || d === 6 || FERIES_2026.includes(ds);
-}
-
 function handleCellClick(e, cell, agent, dateStr, colIndex) {
     if (e.ctrlKey) markColumn(colIndex);
     else if (e.shiftKey) markWeek(agent, colIndex);
@@ -178,6 +210,7 @@ function handleCellClick(e, cell, agent, dateStr, colIndex) {
 function toggleCell(cell, agent, dateStr) {
     if (cell.textContent === 'P') { cell.textContent = 'A'; cell.className = 'cell A'; }
     else if (cell.textContent === 'A') { cell.textContent = 'P'; cell.className = 'cell P'; }
+    else { cell.textContent = 'P'; cell.className = 'cell P'; }
 }
 
 function setHalfAbsent(cell, agent, dateStr) {
@@ -185,15 +218,11 @@ function setHalfAbsent(cell, agent, dateStr) {
     cell.className = 'cell halfA';
 }
 
-function markColumn(colIndex) { /* à compléter si besoin */ }
-function markWeek(agent, colIndex) { /* à compléter si besoin */ }
-
-// Navigation
-document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate()-7); buildTable(); };
-document.getElementById('btnNext').onclick = () => { currentMonday.setDate(currentMonday.getDate()+7); buildTable(); };
+function markColumn(colIndex) { /* à implémenter si besoin */ }
+function markWeek(agent, colIndex) { /* à implémenter si besoin */ }
 
 // Lancement
-buildTable();
+loadData();
 </script>
 </body>
 </html>
