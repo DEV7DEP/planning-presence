@@ -9,7 +9,7 @@
         body {font-family: Calibri, Arial, sans-serif; background:#f0f0f0; margin:0; padding:10px;}
         .header {text-align:center; background:#fff; padding:15px; border-bottom:3px solid #1e40af; position:relative;}
         .title {font-size:32px; font-weight:bold; color:#1e40af; margin:0;}
-        
+       
         .menu-icon {
             position: absolute;
             right: 25px;
@@ -18,47 +18,24 @@
             cursor: pointer;
             color: #1e40af;
         }
-
         .nav {display:flex; justify-content:space-between; align-items:center; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;}
-        
+       
         .main-content {display:flex; gap:20px;}
         table {border-collapse:collapse; background:white; flex:1; box-shadow:0 4px 12px rgba(0,0,0,0.15);}
-        
+       
         th, td {border:1px solid #666; padding:9px; text-align:center; min-width:75px;}
-        
-        .week-header {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            background:#d0d7e0 !important;
-            color: black;
-            height: 48px;
-        }
-        
-        .day-header {
-            position: sticky;
-            top: 48px;
-            z-index: 30;
-            background:#4a90e2 !important;
-        }
-        
-        .name-header {
-            background:#8B0000 !important; 
-            color:white !important; 
-            font-weight:bold;
-            width:290px;
-            position: sticky;
-            left: 0;
-            z-index: 40;
-        }
-        
+       
+        .week-header {position: sticky; top: 0; z-index: 20; background:#d0d7e0 !important; color: black; height: 48px;}
+        .day-header {position: sticky; top: 48px; z-index: 30; background:#4a90e2 !important;}
+        .name-header {background:#8B0000 !important; color:white !important; font-weight:bold; width:290px; position: sticky; left: 0; z-index: 40;}
+       
         .name-col {text-align:left; font-weight:bold; background:#c1e1c1; width:290px; padding-left:15px;}
         .cell {cursor:pointer; font-weight:bold; height:50px;}
         .P {background:#c1e1c1; color:black;}
         .A {background:#c62828; color:white;}
         .halfA {background:#ab47bc; color:white;}
         .RP {background:#95a5a6; color:white;}
-
+        
         .menu-popup {
             display: none;
             position: fixed;
@@ -151,7 +128,6 @@ function toggleMenu() {
     menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
 }
 
-// ==================== FONCTION SEMAINE CORRIGÉE ====================
 function getWeek(date) {
     let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
@@ -173,12 +149,10 @@ function buildTable() {
     const tbody = document.getElementById('tableBody');
     thead.innerHTML = ''; tbody.innerHTML = '';
 
-    // Ligne Semaines
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getWeek(dates[7])}</th>`;
     thead.appendChild(weekRow);
 
-    // Ligne Jours
     const dayRow = document.createElement('tr');
     dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
     dates.forEach(d => {
@@ -193,25 +167,21 @@ function buildTable() {
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
-
         dates.forEach((date, idx) => {
             const td = document.createElement('td');
             td.className = 'cell';
             const dateStr = date.toISOString().split('T')[0];
-
             if (isWeekendOrHoliday(date)) {
                 td.textContent = 'RP';
                 td.classList.add('RP');
             } else {
                 td.textContent = 'P';
                 td.classList.add('P');
-
                 if (localChanges[agent] && localChanges[agent][dateStr]) {
                     const v = localChanges[agent][dateStr];
                     td.textContent = v;
                     td.className = v === 'A' ? 'cell A' : 'cell halfA';
                 }
-
                 td.addEventListener('click', (e) => handleCellClick(e, td, agent, dateStr, idx));
                 td.addEventListener('contextmenu', (e) => { e.preventDefault(); setHalfAbsent(td, agent, dateStr); });
             }
@@ -229,25 +199,21 @@ function handleCellClick(e, cell, agent, dateStr, colIndex) {
     else if (e.shiftKey) markWeek(agent, colIndex);
     else toggleCell(cell, agent, dateStr);
 }
-
 function toggleCell(cell, agent, dateStr) {
     if (cell.textContent === 'P') { cell.textContent = 'A'; cell.className = 'cell A'; }
     else if (cell.textContent === 'A') { cell.textContent = 'P'; cell.className = 'cell P'; }
     updateLocal(agent, dateStr, cell.textContent);
 }
-
 function setHalfAbsent(cell, agent, dateStr) {
     cell.textContent = '½ A';
     cell.className = 'cell halfA';
     updateLocal(agent, dateStr, '½ A');
 }
-
 function updateLocal(agent, dateStr, value) {
     if (!localChanges[agent]) localChanges[agent] = {};
     if (value === 'P') delete localChanges[agent][dateStr];
     else localChanges[agent][dateStr] = value;
 }
-
 function markColumn(colIndex) {
     document.querySelectorAll('#tableBody tr').forEach(row => {
         const cell = row.cells[colIndex + 1];
@@ -256,7 +222,6 @@ function markColumn(colIndex) {
         }
     });
 }
-
 function markWeek(agent, colIndex) {
     const start = colIndex < 7 ? 0 : 7;
     const rows = document.querySelectorAll('#tableBody tr');
@@ -269,12 +234,22 @@ function markWeek(agent, colIndex) {
         }
     }
 }
-
 function isWeekendOrHoliday(date) {
     const d = date.getDay();
     const ds = date.toISOString().split('T')[0];
     return d === 0 || d === 6 || FERIES_2026.includes(ds);
 }
+
+// ==================== NAVIGATION (CORRIGÉE) ====================
+document.getElementById('btnPrev').onclick = function() {
+    currentMonday.setDate(currentMonday.getDate() - 7);
+    buildTable();
+};
+
+document.getElementById('btnNext').onclick = function() {
+    currentMonday.setDate(currentMonday.getDate() + 7);
+    buildTable();
+};
 
 // Lancement
 buildTable();
