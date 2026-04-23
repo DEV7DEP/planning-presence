@@ -25,9 +25,31 @@
        
         th, td {border:1px solid #666; padding:9px; text-align:center; min-width:75px;}
        
-        .week-header {position: sticky; top: 0; z-index: 20; background:#d0d7e0 !important; color: black; height: 48px;}
-        .day-header {position: sticky; top: 48px; z-index: 30; background:#4a90e2 !important;}
-        .name-header {background:#8B0000 !important; color:white !important; font-weight:bold; width:290px; position: sticky; left: 0; z-index: 40;}
+        .week-header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background:#d0d7e0 !important;
+            color: black;
+            height: 48px;
+        }
+       
+        .day-header {
+            position: sticky;
+            top: 48px;
+            z-index: 30;
+            background:#4a90e2 !important;
+        }
+       
+        .name-header {
+            background:#8B0000 !important;
+            color:white !important;
+            font-weight:bold;
+            width:290px;
+            position: sticky;
+            left: 0;
+            z-index: 40;
+        }
        
         .name-col {text-align:left; font-weight:bold; background:#c1e1c1; width:290px; padding-left:15px;}
         .cell {cursor:pointer; font-weight:bold; height:50px;}
@@ -35,7 +57,6 @@
         .A {background:#c62828; color:white;}
         .halfA {background:#ab47bc; color:white;}
         .RP {background:#95a5a6; color:white;}
-        
         .menu-popup {
             display: none;
             position: fixed;
@@ -63,25 +84,21 @@
     </style>
 </head>
 <body>
-
 <div class="header">
     <h1 class="title" id="mainTitle">Planning Présence - Avril → Mai 2026</h1>
     <span class="menu-icon" onclick="toggleMenu()">☰</span>
 </div>
-
 <div class="nav">
     <button id="btnPrev">◄ Semaine précédente</button>
     <span id="weekLabel" style="font-size:22px; font-weight:bold;">Semaine 17 → 18</span>
     <button id="btnNext">Semaine suivante ►</button>
 </div>
-
 <div class="main-content">
     <table id="planningTable">
         <thead id="tableHead"></thead>
         <tbody id="tableBody"></tbody>
     </table>
 </div>
-
 <div class="menu-popup" id="menuPopup">
     <button onclick="resetChanges()" style="background:#3498db; color:white;">Réinitialiser récent</button>
     <button onclick="saveToExcel()" style="background:#000000; color:white;">💾 Sauvegarder</button>
@@ -90,7 +107,6 @@
     <button onclick="deleteAgent()" style="background:#f44336; color:white;">− Supprimer Agent</button>
     <button onclick="toggleMenu()" style="background:#777; color:white; margin-top:12px;">Fermer</button>
 </div>
-
 <div style="text-align:center; margin:15px; color:#1e40af; font-weight:bold;" id="status">Base chargée - Agents prêts</div>
 
 <script>
@@ -106,7 +122,6 @@ let agents = [
     "TEISSEDRE ERIC", "THO CHRISTOPHER", "TRIPIER ARTHUR", "VERBRUGGE ALEXIS",
     "VEYRIER PATRICK"
 ];
-
 let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
@@ -144,7 +159,6 @@ function buildTable() {
         d.setDate(d.getDate() + i);
         dates.push(d);
     }
-
     const thead = document.getElementById('tableHead');
     const tbody = document.getElementById('tableBody');
     thead.innerHTML = ''; tbody.innerHTML = '';
@@ -240,16 +254,37 @@ function isWeekendOrHoliday(date) {
     return d === 0 || d === 6 || FERIES_2026.includes(ds);
 }
 
-// ==================== NAVIGATION (CORRIGÉE) ====================
-document.getElementById('btnPrev').onclick = function() {
-    currentMonday.setDate(currentMonday.getDate() - 7);
-    buildTable();
-};
+// ==================== BOUTONS DU MENU (AJOUTÉS) ====================
+function resetChanges() { 
+    if(confirm("Réinitialiser tout ?")) { 
+        localChanges = {}; 
+        buildTable(); 
+    } 
+}
+function saveToExcel() { 
+    alert("💾 Sauvegarde simulée"); 
+}
+function exportPlanning() { 
+    alert("📤 Export simulé"); 
+}
+function addAgent() { 
+    let n = prompt("Nom du nouvel agent ?"); 
+    if(n){ 
+        agents.push(n); 
+        buildTable(); 
+    } 
+}
+function deleteAgent() { 
+    let n = prompt("Nom à supprimer ?"); 
+    if(n){ 
+        agents = agents.filter(a => a !== n); 
+        buildTable(); 
+    } 
+}
 
-document.getElementById('btnNext').onclick = function() {
-    currentMonday.setDate(currentMonday.getDate() + 7);
-    buildTable();
-};
+// Navigation
+document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate()-7); buildTable(); };
+document.getElementById('btnNext').onclick = () => { currentMonday.setDate(currentMonday.getDate()+7); buildTable(); };
 
 // Lancement
 buildTable();
