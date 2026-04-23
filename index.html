@@ -50,7 +50,7 @@
 <div class="menu-popup" id="menuPopup">
     <button onclick="resetChanges()" style="background:#3498db;color:white;">Réinitialiser</button>
     <button onclick="saveToExcel()" style="background:#000;color:white;">💾 Sauvegarder</button>
-    <button onclick="exportPlanning()" style="background:#e67e22;color:white;">📤 Exporter vers OP</button>
+    <button onclick="exportPlanning()" style="background:#e67e22;color:white;">📤 Exporter TOUT 2026</button>
     <button onclick="addAgent()" style="background:#4caf50;color:white;">+ Ajouter Agent</button>
     <button onclick="deleteAgent()" style="background:#f44336;color:white;">− Supprimer Agent</button>
     <button onclick="toggleMenu()" style="background:#777;color:white;">Fermer</button>
@@ -64,7 +64,7 @@ const GITHUB_OP_URL = "https://raw.githubusercontent.com/dev7dep/planning-presen
 
 let agents = [];
 let currentMonday = new Date(2026, 3, 20);
-let localChanges = {};   // tes modifications (A, ½ A)
+let localChanges = {};   // tes modifications A / ½ A
 
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
@@ -88,35 +88,44 @@ async function loadData() {
     buildTable();
 }
 
-// ==================== EXPORT AVEC TES MODIFICATIONS ====================
+// ==================== EXPORT COMPLET 2026 ====================
 function exportPlanning() {
     const wb = XLSX.utils.book_new();
     const ws_data = [];
 
+    // Générer toutes les semaines de 2026 à partir de currentMonday
+    let startDate = new Date(currentMonday);
+    startDate.setDate(startDate.getDate() - (startDate.getDay() || 7) + 1); // Lundi
+
+    const allDates = [];
+    let current = new Date(startDate);
+    while (current.getFullYear() <= 2026) {
+        allDates.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+    }
+
     // En-tête
     let header = [""];
-    const dates = [];
-    for (let i = 0; i < 14; i++) {
-        const d = new Date(currentMonday);
-        d.setDate(d.getDate() + i);
-        dates.push(d);
+    allDates.forEach(d => {
         header.push(d.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'}));
-    }
+    });
     ws_data.push(header);
 
     // Ligne jours
     let dayRow = [""];
-    dates.forEach(d => dayRow.push(d.toLocaleDateString('fr-FR', {weekday:'short'})));
+    allDates.forEach(d => {
+        dayRow.push(d.toLocaleDateString('fr-FR', {weekday:'short'}));
+    });
     ws_data.push(dayRow);
 
-    // Données avec tes modifications
+    // Données agents avec tes modifications
     agents.forEach(agent => {
         let row = [agent];
-        dates.forEach(date => {
+        allDates.forEach(date => {
             const dateStr = date.toISOString().split('T')[0];
             let value = isWeekendOrHoliday(date) ? "RP" : "P";
 
-            // Priorité aux modifications que tu as faites
+            // Tes modifications ont la priorité
             if (localChanges[agent] && localChanges[agent][dateStr]) {
                 value = localChanges[agent][dateStr];
             }
@@ -128,8 +137,8 @@ function exportPlanning() {
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
     XLSX.utils.book_append_sheet(wb, ws, "CALENDRIER");
 
-    XLSX.writeFile(wb, `OP_MAJ_${new Date().toISOString().slice(0,10)}.xlsx`);
-    alert("✅ Fichier exporté avec tes modifications (A et ½ A) !\n\nRemplace ton OP.xlsx avec ce fichier.");
+    XLSX.writeFile(wb, `OP_COMPLET_2026_${new Date().toISOString().slice(0,10)}.xlsx`);
+    alert("✅ Export complet 2026 terminé !\n\nLe fichier contient toutes les semaines de l'année avec tes modifications.");
 }
 
 // ==================== FONCTIONS DE BASE ====================
@@ -194,7 +203,6 @@ function buildTable() {
                 td.classList.add('P');
             }
 
-            // Appliquer les modifications locales
             if (localChanges[agent] && localChanges[agent][dateStr]) {
                 const v = localChanges[agent][dateStr];
                 td.textContent = v;
@@ -218,25 +226,15 @@ function handleCellClick(e, cell, agent, dateStr, colIndex) {
 }
 
 function toggleCell(cell, agent, dateStr) {
-    if (cell.textContent === 'P') { 
-        cell.textContent = 'A'; 
-        cell.className = 'cell A'; 
-    } else if (cell.textContent === 'A') { 
-        cell.textContent = 'P'; 
-        cell.className = 'cell P'; 
-    }
-    updateLocal(agent, dateStr, cell.textContent);
+    if (cell.textContent === 'P') { cell.textContent = 'A'; cell.className = 'cell A'; }
+    else if (cell.textContent === 'A') { cell.textContent = 'P'; cell.className = 'cell P'; }
 }
 
 function setHalfAbsent(cell, agent, dateStr) {
     cell.textContent = '½ A';
     cell.className = 'cell halfA';
-    updateLocal(agent, dateStr, '½ A');
-}
-
-function updateLocal(agent, dateStr, value) {
     if (!localChanges[agent]) localChanges[agent] = {};
-    localChanges[agent][dateStr] = value;
+    localChanges[agent][dateStr] = '½ A';
 }
 
 function markColumn(colIndex) { /* optionnel */ }
