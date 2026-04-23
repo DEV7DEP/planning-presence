@@ -7,16 +7,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {font-family: Calibri, Arial, sans-serif; background:#f0f0f0; margin:0; padding:10px;}
-        .header {
-            text-align:center; 
-            background:#fff; 
-            padding:15px; 
-            border-bottom:3px solid #1e40af;
-            position: relative;
-        }
+        .header {text-align:center; background:#fff; padding:15px; border-bottom:3px solid #1e40af;}
         .title {font-size:32px; font-weight:bold; color:#1e40af; margin:0;}
         
-        /* Icône Menu en haut à droite */
         .menu-icon {
             position: absolute;
             right: 25px;
@@ -24,7 +17,6 @@
             font-size: 34px;
             cursor: pointer;
             color: #1e40af;
-            user-select: none;
         }
 
         .nav {display:flex; justify-content:space-between; align-items:center; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;}
@@ -33,14 +25,30 @@
         table {border-collapse:collapse; background:white; flex:1; box-shadow:0 4px 12px rgba(0,0,0,0.15);}
         th, td {border:1px solid #666; padding:9px; text-align:center; min-width:75px;}
         th {background:#4a90e2; color:white; font-weight:bold;}
-        .name-col {text-align:left; font-weight:bold; background:#c1e1c1; width:290px; padding-left:15px;}
+        
+        /* Cellule "Nom Prénom" en rouge bordeaux */
+        .name-header {
+            background:#8B0000 !important; 
+            color:white !important; 
+            font-weight:bold;
+            width:290px;
+        }
+        
+        /* Noms des agents en gras et centrés */
+        .name-col {
+            text-align:center !important; 
+            font-weight:bold !important; 
+            background:#c1e1c1; 
+            width:290px; 
+            padding-left:10px;
+        }
+        
         .cell {cursor:pointer; font-weight:bold; height:50px;}
         .P {background:#c1e1c1; color:black;}
         .A {background:#c62828; color:white;}
         .halfA {background:#ab47bc; color:white;}
         .RP {background:#95a5a6; color:white;}
 
-        /* Menu Popup */
         .menu-popup {
             display: none;
             position: fixed;
@@ -87,7 +95,7 @@
     </table>
 </div>
 
-<!-- MENU POPUP -->
+<!-- Menu Popup -->
 <div class="menu-popup" id="menuPopup">
     <button onclick="resetChanges()" style="background:#3498db; color:white;">Réinitialiser récent</button>
     <button onclick="saveToExcel()" style="background:#000000; color:white;">💾 Sauvegarder</button>
@@ -152,7 +160,7 @@ function buildTable() {
     thead.appendChild(weekRow);
 
     const dayRow = document.createElement('tr');
-    dayRow.innerHTML = `<th class="name-col">Nom</th>`;
+    dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
     dates.forEach(d => {
         const th = document.createElement('th');
         th.textContent = d.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'});
