@@ -29,8 +29,6 @@
 
 <div class="header">
     <h1 class="title">Planning Présence 2026</h1>
-    <input type="file" id="fileInput" accept=".xlsx" onchange="loadExcel(this)" style="margin-top:8px;">
-    <span id="filename" style="margin-left:15px; color:#555;"></span>
 </div>
 
 <div class="nav">
@@ -54,28 +52,50 @@
     </div>
 </div>
 
-<div class="info" id="status">Base intégrée - 35 agents chargés</div>
+<div class="info" id="status">Chargement de OP.xlsx depuis GitHub...</div>
 
 <script>
-// ==================== BASE INTÉGRÉE (tes agents) ====================
-let agents = [
-    "ABREU FRANCK", "ANDERSON SONI NZEYI", "BENARIOUMILIL KENZI", "BEVZ YURII",
-    "BORREL NICOLAS", "BRAIKI MOUEZ", "CAMPOS JEAN MICHEL", "CHIROU ADAM",
-    "CORS FREDERIC", "COULIBALY LASSANA", "DA CRUZ GEORGES ANTONIO",
-    "DELCUEILLERIE DYLAN", "DESCAMPS JULIEN", "DOMINGOS TONY", "DUMONT JOEL",
-    "EXT PEYRON FABRICE", "GEOFFRAY AURELIEN", "GRANDJEAN JEAN-BAPTISTE",
-    "LOULOU ABDELRANI", "MHEMEDI HISHAM", "MOZIN CHARLIE", "PARADIS BENOIT",
-    "REZLI SMAÏN", "SEON RAPHAEL", "SIDIBE BAKARY", "TECHER TEDDY",
-    "TEISSEDRE ERIC", "THO CHRISTOPHER", "TRIPIER ARTHUR", "VERBRUGGE ALEXIS",
-    "VEYRIER PATRICK"
-];
+// ==================== CONFIGURATION GITHub ====================
+const EXCEL_URL = "https://raw.githubusercontent.com/DEV7DEP/planning-presence/main/OP.xlsx";
 
+let agents = [];
 let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
-// ==================== FONCTIONS ====================
+// ==================== CHARGEMENT AUTOMATIQUE OP.XLSX ====================
+async function loadOPfromGitHub() {
+    document.getElementById('status').textContent = "Chargement de OP.xlsx depuis GitHub...";
+    
+    try {
+        const response = await fetch(EXCEL_URL);
+        if (!response.ok) throw new Error("Fichier non trouvé");
+        
+        const arrayBuffer = await response.arrayBuffer();
+        const workbook = XLSX.read(new Uint8Array(arrayBuffer), {type: 'array'});
+        
+        // Lecture des agents (colonne A, à partir de la ligne 5)
+        const ws = workbook.Sheets[workbook.SheetNames[0]];
+        agents = [];
+        for (let r = 4; r < 100; r++) {
+            const cell = ws[XLSX.utils.encode_cell({r: r, c: 0})];
+            if (!cell || !cell.v) continue;
+            const name = String(cell.v).trim();
+            if (name && name.length > 2) agents.push(name);
+        }
+
+        document.getElementById('status').innerHTML = `✅ ${agents.length} agents chargés depuis GitHub`;
+        buildTable();
+        
+    } catch (error) {
+        document.getElementById('status').innerHTML = `❌ Erreur chargement : ${error.message}<br>Utilisez le bouton ci-dessous pour charger manuellement`;
+        console.error(error);
+    }
+}
+
+// ==================== CONSTRUCTION TABLEAU ====================
 function buildTable() {
+    // ... (même code que précédemment, je te le donne complet ci-dessous pour éviter les erreurs)
     const dates = [];
     for (let i = 0; i < 14; i++) {
         const d = new Date(currentMonday);
@@ -87,7 +107,6 @@ function buildTable() {
     const tbody = document.getElementById('tableBody');
     thead.innerHTML = ''; tbody.innerHTML = '';
 
-    // En-têtes
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" style="background:#d0d7e0">Semaine ${getWeek(dates[0])}</th><th colspan="7" style="background:#d0d7e0">Semaine ${getWeek(dates[7])}</th>`;
     thead.appendChild(weekRow);
@@ -102,7 +121,6 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Lignes
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -136,6 +154,7 @@ function buildTable() {
     document.getElementById('weekLabel').textContent = `Semaine ${getWeek(dates[0])} → ${getWeek(dates[7])}`;
 }
 
+// ==================== LES FONCTIONS CLIC (Ctrl / Shift) ====================
 function handleCellClick(e, cell, agent, dateStr, colIndex) {
     if (e.ctrlKey) markColumn(colIndex);
     else if (e.shiftKey) markWeek(agent, colIndex);
@@ -196,17 +215,18 @@ function getWeek(date) {
 }
 
 // Boutons
-function resetChanges() { if(confirm("Tout réinitialiser ?")) { localChanges = {}; buildTable(); } }
+function resetChanges() { if(confirm("Réinitialiser tout ?")) { localChanges = {}; buildTable(); } }
 function saveToExcel() { alert("💾 Sauvegarde simulée"); }
 function exportPlanning() { alert("📤 Export simulé"); }
 function addAgent() { let n=prompt("Nom du nouvel agent ?"); if(n){agents.push(n); buildTable();} }
 function deleteAgent() { let n=prompt("Nom à supprimer ?"); if(n){agents=agents.filter(a=>a!==n); buildTable();} }
 
+// Navigation
 document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate()-7); buildTable(); };
 document.getElementById('btnNext').onclick = () => { currentMonday.setDate(currentMonday.getDate()+7); buildTable(); };
 
-// Chargement initial
-buildTable();
+// Lancement automatique
+loadOPfromGitHub();
 </script>
 </body>
 </html>
