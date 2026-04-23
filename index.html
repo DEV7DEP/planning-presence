@@ -7,30 +7,30 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {font-family: Calibri, Arial, sans-serif; background:#f0f0f0; margin:0; padding:10px;}
-        .header {text-align:center; background:#fff; padding:15px; border-bottom:2px solid #1e40af;}
-        .title {font-size:32px; font-weight:bold; color:#1e40af; margin:0;}
+        .header {text-align:center; background:#fff; padding:15px; border-bottom:3px solid #1e40af;}
+        .title {font-size:34px; font-weight:bold; color:#1e40af; margin:0;}
         .nav {display:flex; justify-content:space-between; align-items:center; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;}
         button {padding:10px 18px; font-size:15px; cursor:pointer; border:none; border-radius:4px;}
-        .action-panel {position:fixed; right:25px; top:180px; background:white; border:2px solid #333; padding:12px; width:240px; border-radius:8px; box-shadow:0 5px 20px rgba(0,0,0,0.3);}
+        .action-panel {position:fixed; right:25px; top:160px; background:white; border:2px solid #333; padding:12px; width:240px; border-radius:8px; box-shadow:0 5px 20px rgba(0,0,0,0.3);}
         .action-panel button {width:100%; margin:6px 0; font-weight:bold;}
         table {border-collapse:collapse; background:white; width:100%; max-width:1600px; margin:15px auto; box-shadow:0 4px 15px rgba(0,0,0,0.2);}
-        th, td {border:1px solid #666; padding:8px 6px; text-align:center; min-width:75px;}
+        th, td {border:1px solid #666; padding:9px; text-align:center; min-width:78px;}
         th {background:#4a90e2; color:white; font-weight:bold;}
-        .name-col {text-align:left; font-weight:bold; background:#c1e1c1; width:280px; padding-left:15px;}
-        .cell {cursor:pointer; font-weight:bold; height:48px;}
+        .name-col {text-align:left; font-weight:bold; background:#c1e1c1; width:290px; padding-left:15px;}
+        .cell {cursor:pointer; font-weight:bold; height:50px;}
         .P {background:#c1e1c1; color:black;}
         .A {background:#c62828; color:white;}
         .halfA {background:#ab47bc; color:white;}
         .RP {background:#95a5a6; color:white;}
-        .info {text-align:center; color:#333; font-size:15px; margin:10px;}
+        .info {text-align:center; color:#1e40af; font-weight:bold; margin:8px;}
     </style>
 </head>
 <body>
 
 <div class="header">
     <h1 class="title">Planning Présence 2026</h1>
-    <input type="file" id="fileInput" accept=".xlsx" onchange="loadExcel(this)">
-    <span id="filename" style="margin-left:20px; color:#1e40af; font-weight:bold;"></span>
+    <input type="file" id="fileInput" accept=".xlsx" onchange="loadExcel(this)" style="margin-top:8px;">
+    <span id="filename" style="margin-left:15px; color:#555;"></span>
 </div>
 
 <div class="nav">
@@ -54,48 +54,27 @@
     </div>
 </div>
 
-<div class="info" id="status">Chargez votre fichier OP.xlsx</div>
+<div class="info" id="status">Base intégrée - 35 agents chargés</div>
 
 <script>
-// ==================== VARIABLES ====================
-let workbook = null;
-let agents = [];
+// ==================== BASE INTÉGRÉE (tes agents) ====================
+let agents = [
+    "ABREU FRANCK", "ANDERSON SONI NZEYI", "BENARIOUMILIL KENZI", "BEVZ YURII",
+    "BORREL NICOLAS", "BRAIKI MOUEZ", "CAMPOS JEAN MICHEL", "CHIROU ADAM",
+    "CORS FREDERIC", "COULIBALY LASSANA", "DA CRUZ GEORGES ANTONIO",
+    "DELCUEILLERIE DYLAN", "DESCAMPS JULIEN", "DOMINGOS TONY", "DUMONT JOEL",
+    "EXT PEYRON FABRICE", "GEOFFRAY AURELIEN", "GRANDJEAN JEAN-BAPTISTE",
+    "LOULOU ABDELRANI", "MHEMEDI HISHAM", "MOZIN CHARLIE", "PARADIS BENOIT",
+    "REZLI SMAÏN", "SEON RAPHAEL", "SIDIBE BAKARY", "TECHER TEDDY",
+    "TEISSEDRE ERIC", "THO CHRISTOPHER", "TRIPIER ARTHUR", "VERBRUGGE ALEXIS",
+    "VEYRIER PATRICK"
+];
+
 let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
-// ==================== CHARGER OP.XLSX ====================
-function loadExcel(input) {
-    const file = input.files[0];
-    if (!file) return;
-    document.getElementById('filename').textContent = file.name;
-    document.getElementById('status').innerHTML = "✅ Fichier chargé - Lecture en cours...";
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
-        loadAgentsFromOP();
-        buildTable();
-    };
-    reader.readAsArrayBuffer(file);
-}
-
-// Lecture adaptée à la structure de ton Excel (agents à partir de la ligne 5)
-function loadAgentsFromOP() {
-    if (!workbook) return;
-    const ws = workbook.Sheets[workbook.SheetNames[0]];
-    agents = [];
-    // Commence à partir de la ligne 5 (comme dans ton Excel)
-    for (let r = 4; r < 100; r++) {  // jusqu'à la ligne 100 max
-        const cell = ws[XLSX.utils.encode_cell({r: r, c: 0})]; // Colonne A
-        if (!cell || !cell.v) continue;
-        const name = String(cell.v).trim();
-        if (name && name.length > 2) agents.push(name);
-    }
-    if (agents.length === 0) agents = ["Aucun agent trouvé"];
-}
-
-// ==================== CONSTRUCTION TABLEAU ====================
+// ==================== FONCTIONS ====================
 function buildTable() {
     const dates = [];
     for (let i = 0; i < 14; i++) {
@@ -108,12 +87,11 @@ function buildTable() {
     const tbody = document.getElementById('tableBody');
     thead.innerHTML = ''; tbody.innerHTML = '';
 
-    // En-tête semaines
+    // En-têtes
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" style="background:#d0d7e0">Semaine ${getWeek(dates[0])}</th><th colspan="7" style="background:#d0d7e0">Semaine ${getWeek(dates[7])}</th>`;
     thead.appendChild(weekRow);
 
-    // En-tête jours
     const dayRow = document.createElement('tr');
     dayRow.innerHTML = `<th class="name-col">Nom</th>`;
     dates.forEach(d => {
@@ -124,7 +102,7 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Lignes agents
+    // Lignes
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -156,7 +134,6 @@ function buildTable() {
     });
 
     document.getElementById('weekLabel').textContent = `Semaine ${getWeek(dates[0])} → ${getWeek(dates[7])}`;
-    document.getElementById('status').innerHTML = `✅ ${agents.length} agents chargés`;
 }
 
 function handleCellClick(e, cell, agent, dateStr, colIndex) {
@@ -168,44 +145,39 @@ function handleCellClick(e, cell, agent, dateStr, colIndex) {
 function toggleCell(cell, agent, dateStr) {
     if (cell.textContent === 'P') { cell.textContent = 'A'; cell.className = 'cell A'; }
     else if (cell.textContent === 'A') { cell.textContent = 'P'; cell.className = 'cell P'; }
-    updateLocalChange(agent, dateStr, cell.textContent);
+    updateLocal(agent, dateStr, cell.textContent);
 }
 
 function setHalfAbsent(cell, agent, dateStr) {
     cell.textContent = '½ A';
     cell.className = 'cell halfA';
-    updateLocalChange(agent, dateStr, '½ A');
+    updateLocal(agent, dateStr, '½ A');
 }
 
-function updateLocalChange(agent, dateStr, value) {
+function updateLocal(agent, dateStr, value) {
     if (!localChanges[agent]) localChanges[agent] = {};
     if (value === 'P') delete localChanges[agent][dateStr];
     else localChanges[agent][dateStr] = value;
 }
 
-// Ctrl+Clic = Colonne entière
 function markColumn(colIndex) {
     document.querySelectorAll('#tableBody tr').forEach(row => {
         const cell = row.cells[colIndex + 1];
         if (cell && !cell.classList.contains('RP')) {
-            cell.textContent = 'A';
-            cell.className = 'cell A';
+            cell.textContent = 'A'; cell.className = 'cell A';
         }
     });
 }
 
-// Shift+Clic = Semaine entière
 function markWeek(agent, colIndex) {
     const start = colIndex < 7 ? 0 : 7;
     const rows = document.querySelectorAll('#tableBody tr');
-    const agentIdx = agents.indexOf(agent);
-    if (agentIdx === -1) return;
-
+    const idx = agents.indexOf(agent);
+    if (idx === -1) return;
     for (let i = 0; i < 5; i++) {
-        const cell = rows[agentIdx].cells[start + i + 1];
+        const cell = rows[idx].cells[start + i + 1];
         if (cell && !cell.classList.contains('RP')) {
-            cell.textContent = 'A';
-            cell.className = 'cell A';
+            cell.textContent = 'A'; cell.className = 'cell A';
         }
     }
 }
@@ -213,27 +185,27 @@ function markWeek(agent, colIndex) {
 function isWeekendOrHoliday(date) {
     const d = date.getDay();
     const ds = date.toISOString().split('T')[0];
-    return d===0 || d===6 || FERIES_2026.includes(ds);
+    return d === 0 || d === 6 || FERIES_2026.includes(ds);
 }
 
 function getWeek(date) {
     let d = new Date(date); d.setHours(0,0,0,0);
-    d.setDate(d.getDate() + 3 - (d.getDay()+6)%7);
+    d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
     const week1 = new Date(d.getFullYear(),0,4);
-    return Math.round(((d-week1)/86400000 -3 +(week1.getDay()+6)%7)/7)+1;
+    return Math.round(((d - week1)/86400000 -3 + (week1.getDay()+6)%7)/7) + 1;
 }
 
 // Boutons
-function resetChanges() { if(confirm("Tout réinitialiser ?")) {localChanges={}; buildTable();} }
-function saveToExcel() { alert("💾 Sauvegarde simulée (amélioration prochaine)"); }
-function exportPlanning() { alert("📤 Export en cours..."); }
-function addAgent() { let n = prompt("Nom du nouvel agent ?"); if(n) {agents.push(n); buildTable();} }
-function deleteAgent() { let n = prompt("Supprimer quel agent ?"); if(n) {agents = agents.filter(a=>a!==n); buildTable();} }
+function resetChanges() { if(confirm("Tout réinitialiser ?")) { localChanges = {}; buildTable(); } }
+function saveToExcel() { alert("💾 Sauvegarde simulée"); }
+function exportPlanning() { alert("📤 Export simulé"); }
+function addAgent() { let n=prompt("Nom du nouvel agent ?"); if(n){agents.push(n); buildTable();} }
+function deleteAgent() { let n=prompt("Nom à supprimer ?"); if(n){agents=agents.filter(a=>a!==n); buildTable();} }
 
-// Navigation
 document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate()-7); buildTable(); };
 document.getElementById('btnNext').onclick = () => { currentMonday.setDate(currentMonday.getDate()+7); buildTable(); };
 
+// Chargement initial
 buildTable();
 </script>
 </body>
