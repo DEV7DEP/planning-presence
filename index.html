@@ -7,12 +7,28 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {font-family: Calibri, Arial, sans-serif; background:#f0f0f0; margin:0; padding:10px;}
-        .header {text-align:center; background:#fff; padding:15px; border-bottom:3px solid #1e40af;}
+        .header {
+            text-align:center; 
+            background:#fff; 
+            padding:15px; 
+            border-bottom:3px solid #1e40af;
+            position: relative;
+        }
         .title {font-size:32px; font-weight:bold; color:#1e40af; margin:0;}
         
+        /* Icône Menu en haut à droite */
+        .menu-icon {
+            position: absolute;
+            right: 25px;
+            top: 18px;
+            font-size: 32px;
+            cursor: pointer;
+            color: #1e40af;
+        }
+
         .nav {display:flex; justify-content:space-between; align-items:center; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;}
         
-        .main-content {display:flex; gap:25px;}
+        .main-content {display:flex; gap:20px;}
         table {border-collapse:collapse; background:white; flex:1; box-shadow:0 4px 12px rgba(0,0,0,0.15);}
         th, td {border:1px solid #666; padding:9px; text-align:center; min-width:75px;}
         th {background:#4a90e2; color:white; font-weight:bold;}
@@ -23,25 +39,30 @@
         .halfA {background:#ab47bc; color:white;}
         .RP {background:#95a5a6; color:white;}
 
-        .action-panel {
+        /* Menu Popup */
+        .menu-popup {
+            display: none;
             position: fixed;
-            right: 25px;
-            top: 170px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             background: white;
-            border: 2px solid #333;
-            padding: 12px;
-            width: 230px;
-            border-radius: 8px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            border: 3px solid #1e40af;
+            padding: 25px 20px;
+            width: 260px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            z-index: 1000;
         }
-        .action-panel button {
+        .menu-popup button {
             width: 100%;
-            margin: 6px 0;
-            padding: 13px;
+            margin: 8px 0;
+            padding: 14px;
             font-weight: bold;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             cursor: pointer;
+            font-size: 16px;
         }
     </style>
 </head>
@@ -49,6 +70,7 @@
 
 <div class="header">
     <h1 class="title" id="mainTitle">Planning Présence - Avril → Mai 2026</h1>
+    <span class="menu-icon" onclick="toggleMenu()">☰</span>
 </div>
 
 <div class="nav">
@@ -62,21 +84,23 @@
         <thead id="tableHead"></thead>
         <tbody id="tableBody"></tbody>
     </table>
+</div>
 
-    <div class="action-panel">
-        <button onclick="resetChanges()" style="background:#3498db; color:white;">Réinitialiser récent</button>
-        <button onclick="saveToExcel()" style="background:#000000; color:white;">💾 Sauvegarder</button>
-        <button onclick="exportPlanning()" style="background:#e67e22; color:white;">📤 Exporter</button>
-        <button onclick="addAgent()" style="background:#4caf50; color:white;">+ Ajouter Agent</button>
-        <button onclick="deleteAgent()" style="background:#f44336; color:white;">− Supprimer Agent</button>
-    </div>
+<!-- Menu Popup -->
+<div class="menu-popup" id="menuPopup">
+    <button onclick="resetChanges()" style="background:#3498db; color:white;">Réinitialiser récent</button>
+    <button onclick="saveToExcel()" style="background:#000000; color:white;">💾 Sauvegarder</button>
+    <button onclick="exportPlanning()" style="background:#e67e22; color:white;">📤 Exporter</button>
+    <button onclick="addAgent()" style="background:#4caf50; color:white;">+ Ajouter Agent</button>
+    <button onclick="deleteAgent()" style="background:#f44336; color:white;">− Supprimer Agent</button>
+    <button onclick="toggleMenu()" style="background:#777; color:white; margin-top:10px;">Fermer</button>
 </div>
 
 <div style="text-align:center; margin:15px; color:#1e40af; font-weight:bold;" id="status">Base chargée - Agents prêts</div>
 
 <script>
-// (Le reste du script reste identique à la version précédente que tu avais)
-let agents = [ /* ta liste d'agents */ 
+// ==================== BASE AGENTS ====================
+let agents = [
     "ABREU FRANCK", "ANDERSON SONI NZEYI", "BENARIOUMILIL KENZI", "BEVZ YURII",
     "BORREL NICOLAS", "BRAIKI MOUEZ", "CAMPOS JEAN MICHEL", "CHIROU ADAM",
     "CORS FREDERIC", "COULIBALY LASSANA", "DA CRUZ GEORGES ANTONIO",
@@ -104,15 +128,143 @@ function updateTitle() {
     document.getElementById('mainTitle').textContent = title;
 }
 
-// ... (le reste du code buildTable, handleCellClick, etc. reste le même que la dernière version que je t'ai envoyée)
+function toggleMenu() {
+    const menu = document.getElementById('menuPopup');
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+}
 
 function buildTable() {
     updateTitle();
-    // ... (code identique à la précédente version)
+    const dates = [];
+    for (let i = 0; i < 14; i++) {
+        const d = new Date(currentMonday);
+        d.setDate(d.getDate() + i);
+        dates.push(d);
+    }
+
+    const thead = document.getElementById('tableHead');
+    const tbody = document.getElementById('tableBody');
+    thead.innerHTML = ''; tbody.innerHTML = '';
+
+    const weekRow = document.createElement('tr');
+    weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" style="background:#d0d7e0">Semaine ${getWeek(dates[0])}</th><th colspan="7" style="background:#d0d7e0">Semaine ${getWeek(dates[7])}</th>`;
+    thead.appendChild(weekRow);
+
+    const dayRow = document.createElement('tr');
+    dayRow.innerHTML = `<th class="name-col">Nom</th>`;
+    dates.forEach(d => {
+        const th = document.createElement('th');
+        th.textContent = d.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'});
+        if (isWeekendOrHoliday(d)) th.style.background = '#95a5a6';
+        dayRow.appendChild(th);
+    });
+    thead.appendChild(dayRow);
+
+    agents.forEach(agent => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td class="name-col">${agent}</td>`;
+
+        dates.forEach((date, idx) => {
+            const td = document.createElement('td');
+            td.className = 'cell';
+            const dateStr = date.toISOString().split('T')[0];
+
+            if (isWeekendOrHoliday(date)) {
+                td.textContent = 'RP';
+                td.classList.add('RP');
+            } else {
+                td.textContent = 'P';
+                td.classList.add('P');
+
+                if (localChanges[agent] && localChanges[agent][dateStr]) {
+                    const v = localChanges[agent][dateStr];
+                    td.textContent = v;
+                    td.className = v === 'A' ? 'cell A' : 'cell halfA';
+                }
+
+                td.addEventListener('click', (e) => handleCellClick(e, td, agent, dateStr, idx));
+                td.addEventListener('contextmenu', (e) => { e.preventDefault(); setHalfAbsent(td, agent, dateStr); });
+            }
+            row.appendChild(td);
+        });
+        tbody.appendChild(row);
+    });
+
+    document.getElementById('weekLabel').textContent = `Semaine ${getWeek(dates[0])} → ${getWeek(dates[7])}`;
 }
 
-// (Copie le reste du script de la version précédente que tu avais)
+// ==================== FONCTIONS CLIC ====================
+function handleCellClick(e, cell, agent, dateStr, colIndex) {
+    if (e.ctrlKey) markColumn(colIndex);
+    else if (e.shiftKey) markWeek(agent, colIndex);
+    else toggleCell(cell, agent, dateStr);
+}
 
+function toggleCell(cell, agent, dateStr) {
+    if (cell.textContent === 'P') { cell.textContent = 'A'; cell.className = 'cell A'; }
+    else if (cell.textContent === 'A') { cell.textContent = 'P'; cell.className = 'cell P'; }
+    updateLocal(agent, dateStr, cell.textContent);
+}
+
+function setHalfAbsent(cell, agent, dateStr) {
+    cell.textContent = '½ A';
+    cell.className = 'cell halfA';
+    updateLocal(agent, dateStr, '½ A');
+}
+
+function updateLocal(agent, dateStr, value) {
+    if (!localChanges[agent]) localChanges[agent] = {};
+    if (value === 'P') delete localChanges[agent][dateStr];
+    else localChanges[agent][dateStr] = value;
+}
+
+function markColumn(colIndex) {
+    document.querySelectorAll('#tableBody tr').forEach(row => {
+        const cell = row.cells[colIndex + 1];
+        if (cell && !cell.classList.contains('RP')) {
+            cell.textContent = 'A'; cell.className = 'cell A';
+        }
+    });
+}
+
+function markWeek(agent, colIndex) {
+    const start = colIndex < 7 ? 0 : 7;
+    const rows = document.querySelectorAll('#tableBody tr');
+    const idx = agents.indexOf(agent);
+    if (idx === -1) return;
+    for (let i = 0; i < 5; i++) {
+        const cell = rows[idx].cells[start + i + 1];
+        if (cell && !cell.classList.contains('RP')) {
+            cell.textContent = 'A'; cell.className = 'cell A';
+        }
+    }
+}
+
+function isWeekendOrHoliday(date) {
+    const d = date.getDay();
+    const ds = date.toISOString().split('T')[0];
+    return d === 0 || d === 6 || FERIES_2026.includes(ds);
+}
+
+function getWeek(date) {
+    let d = new Date(date); d.setHours(0,0,0,0);
+    d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+    const week1 = new Date(d.getFullYear(),0,4);
+    return Math.round(((d - week1)/86400000 -3 + (week1.getDay()+6)%7)/7) + 1;
+}
+
+// Boutons du menu
+function resetChanges() { if(confirm("Réinitialiser tout ?")) { localChanges = {}; buildTable(); toggleMenu(); } }
+function saveToExcel() { alert("💾 Sauvegarde simulée"); toggleMenu(); }
+function exportPlanning() { alert("📤 Export simulé"); toggleMenu(); }
+function addAgent() { let n=prompt("Nom du nouvel agent ?"); if(n){agents.push(n); buildTable(); toggleMenu();} }
+function deleteAgent() { let n=prompt("Nom à supprimer ?"); if(n){agents=agents.filter(a=>a!==n); buildTable(); toggleMenu();} }
+
+// Navigation
+document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate()-7); buildTable(); };
+document.getElementById('btnNext').onclick = () => { currentMonday.setDate(currentMonday.getDate()+7); buildTable(); };
+
+// Lancement
 buildTable();
 </script>
 </body>
