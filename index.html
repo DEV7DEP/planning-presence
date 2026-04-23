@@ -23,30 +23,8 @@
         .A {background:#c62828; color:white;}
         .halfA {background:#ab47bc; color:white;}
         .RP {background:#95a5a6; color:white;}
-        .menu-popup {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            border: 3px solid #1e40af;
-            padding: 25px 20px;
-            width: 270px;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-            z-index: 1000;
-        }
-        .menu-popup button {
-            width: 100%;
-            margin: 8px 0;
-            padding: 14px;
-            font-weight: bold;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-        }
+        .menu-popup {display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:white; border:3px solid #1e40af; padding:25px 20px; width:270px; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.4); z-index:200;}
+        .menu-popup button {width:100%; margin:8px 0; padding:14px; font-weight:bold; border:none; border-radius:6px; cursor:pointer; font-size:16px;}
     </style>
 </head>
 <body>
@@ -69,7 +47,6 @@
     </table>
 </div>
 
-<!-- MENU POPUP -->
 <div class="menu-popup" id="menuPopup">
     <button onclick="resetChanges()" style="background:#3498db;color:white;">Réinitialiser récent</button>
     <button onclick="saveToExcel()" style="background:#000000;color:white;">💾 Sauvegarder</button>
@@ -82,64 +59,134 @@
 <div style="text-align:center; margin:15px; color:#1e40af; font-weight:bold;" id="status">Prêt</div>
 
 <script>
-// ==================== TOUTES LES FONCTIONS AVANT L'UTILISATION ====================
-function toggleMenu() {
-    const menu = document.getElementById('menuPopup');
-    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
-}
-
-function resetChanges() {
-    if (confirm("Réinitialiser toutes les modifications ?")) {
-        localChanges = {};
-        buildTable();
-        toggleMenu();
-    }
-}
-
-function saveToExcel() {
-    alert("💾 Sauvegarde simulée (sera améliorée plus tard)");
-    toggleMenu();
-}
-
-function exportPlanning() {
-    alert("📤 Export simulé");
-    toggleMenu();
-}
-
-function addAgent() {
-    let n = prompt("Nom du nouvel agent ?");
-    if (n) {
-        agents.push(n);
-        buildTable();
-        toggleMenu();
-    }
-}
-
-function deleteAgent() {
-    let n = prompt("Nom à supprimer ?");
-    if (n) {
-        agents = agents.filter(a => a !== n);
-        buildTable();
-        toggleMenu();
-    }
-}
-
-// ==================== LE RESTE DU CODE (tableau + navigation) ====================
-let agents = ["ABREU FRANCK", "ANDERSON SONI NZEYI", "BENARIOUMILIL KENZI", "BEVZ YURII", "BORREL NICOLAS", "BRAIKI MOUEZ", "CAMPOS JEAN MICHEL", "CHIROU ADAM", "CORS FREDERIC", "COULIBALY LASSANA", "DA CRUZ GEORGES ANTONIO", "DELCUEILLERIE DYLAN", "DESCAMPS JULIEN", "DOMINGOS TONY", "DUMONT JOEL", "EXT PEYRON FABRICE", "GEOFFRAY AURELIEN", "GRANDJEAN JEAN-BAPTISTE", "LOULOU ABDELRANI", "MHEMEDI HISHAM", "MOZIN CHARLIE", "PARADIS BENOIT", "REZLI SMAÏN", "SEON RAPHAEL", "SIDIBE BAKARY", "TECHER TEDDY", "TEISSEDRE ERIC", "THO CHRISTOPHER", "TRIPIER ARTHUR", "VERBRUGGE ALEXIS", "VEYRIER PATRICK"];
+// ==================== VARIABLES ====================
+let agents = [
+    "ABREU FRANCK", "ANDERSON SONI NZEYI", "BENARIOUMILIL KENZI", "BEVZ YURII",
+    "BORREL NICOLAS", "BRAIKI MOUEZ", "CAMPOS JEAN MICHEL", "CHIROU ADAM",
+    "CORS FREDERIC", "COULIBALY LASSANA", "DA CRUZ GEORGES ANTONIO",
+    "DELCUEILLERIE DYLAN", "DESCAMPS JULIEN", "DOMINGOS TONY", "DUMONT JOEL",
+    "EXT PEYRON FABRICE", "GEOFFRAY AURELIEN", "GRANDJEAN JEAN-BAPTISTE",
+    "LOULOU ABDELRANI", "MHEMEDI HISHAM", "MOZIN CHARLIE", "PARADIS BENOIT",
+    "REZLI SMAÏN", "SEON RAPHAEL", "SIDIBE BAKARY", "TECHER TEDDY",
+    "TEISSEDRE ERIC", "THO CHRISTOPHER", "TRIPIER ARTHUR", "VERBRUGGE ALEXIS",
+    "VEYRIER PATRICK"
+];
 
 let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
+// ==================== MENU ====================
+function toggleMenu() {
+    const menu = document.getElementById('menuPopup');
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+}
+
+// ==================== BOUTONS MENU ====================
+function resetChanges() { 
+    if(confirm("Réinitialiser tout ?")) { localChanges = {}; buildTable(); } 
+}
+function saveToExcel() { alert("💾 Sauvegarde simulée"); }
+function exportPlanning() { alert("📤 Export simulé"); }
+function addAgent() { 
+    let n = prompt("Nom du nouvel agent ?"); 
+    if(n){ agents.push(n); buildTable(); } 
+}
+function deleteAgent() { 
+    let n = prompt("Nom à supprimer ?"); 
+    if(n){ agents = agents.filter(a => a !== n); buildTable(); } 
+}
+
+// ==================== TABLEAU ====================
 function buildTable() {
-    // (Ton code de construction du tableau ici - je le garde simple pour l'instant)
-    console.log("Tableau reconstruit");
-    // ... tu peux remettre ta fonction buildTable complète ici
+    const dates = [];
+    for (let i = 0; i < 14; i++) {
+        const d = new Date(currentMonday);
+        d.setDate(d.getDate() + i);
+        dates.push(d);
+    }
+
+    const thead = document.getElementById('tableHead');
+    const tbody = document.getElementById('tableBody');
+    thead.innerHTML = ''; 
+    tbody.innerHTML = '';
+
+    // Ligne Semaines
+    const weekRow = document.createElement('tr');
+    weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getWeek(dates[7])}</th>`;
+    thead.appendChild(weekRow);
+
+    // Ligne Jours
+    const dayRow = document.createElement('tr');
+    dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
+    dates.forEach(d => {
+        const th = document.createElement('th');
+        th.className = "day-header";
+        th.textContent = d.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'});
+        if (isWeekendOrHoliday(d)) th.style.background = '#95a5a6';
+        dayRow.appendChild(th);
+    });
+    thead.appendChild(dayRow);
+
+    // Lignes Agents
+    agents.forEach(agent => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td class="name-col">${agent}</td>`;
+
+        dates.forEach((date, idx) => {
+            const td = document.createElement('td');
+            td.className = 'cell';
+            const dateStr = date.toISOString().split('T')[0];
+
+            if (isWeekendOrHoliday(date)) {
+                td.textContent = 'RP';
+                td.classList.add('RP');
+            } else {
+                td.textContent = 'P';
+                td.classList.add('P');
+            }
+
+            td.addEventListener('click', (e) => handleCellClick(e, td, agent, dateStr, idx));
+            td.addEventListener('contextmenu', (e) => { e.preventDefault(); setHalfAbsent(td, agent, dateStr); });
+            row.appendChild(td);
+        });
+        tbody.appendChild(row);
+    });
+
+    document.getElementById('weekLabel').textContent = `Semaine ${getWeek(dates[0])} → ${getWeek(dates[7])}`;
+}
+
+function getWeek(date) {
+    let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+function isWeekendOrHoliday(date) {
+    const d = date.getDay();
+    const ds = date.toISOString().split('T')[0];
+    return d === 0 || d === 6 || FERIES_2026.includes(ds);
 }
 
 function handleCellClick(e, cell, agent, dateStr, colIndex) {
-    // tes fonctions de clic
+    if (e.ctrlKey) markColumn(colIndex);
+    else if (e.shiftKey) markWeek(agent, colIndex);
+    else toggleCell(cell, agent, dateStr);
 }
+
+function toggleCell(cell, agent, dateStr) {
+    if (cell.textContent === 'P') { cell.textContent = 'A'; cell.className = 'cell A'; }
+    else if (cell.textContent === 'A') { cell.textContent = 'P'; cell.className = 'cell P'; }
+}
+
+function setHalfAbsent(cell, agent, dateStr) {
+    cell.textContent = '½ A';
+    cell.className = 'cell halfA';
+}
+
+function markColumn(colIndex) { /* à compléter si besoin */ }
+function markWeek(agent, colIndex) { /* à compléter si besoin */ }
 
 // Navigation
 document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate()-7); buildTable(); };
