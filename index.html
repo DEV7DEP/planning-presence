@@ -9,20 +9,39 @@
         body {font-family: Calibri, Arial, sans-serif; background:#f0f0f0; margin:0; padding:10px;}
         .header {text-align:center; background:#fff; padding:15px; border-bottom:3px solid #1e40af;}
         .title {font-size:34px; font-weight:bold; color:#1e40af; margin:0;}
+        
         .nav {display:flex; justify-content:space-between; align-items:center; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;}
-        button {padding:10px 18px; font-size:15px; cursor:pointer; border:none; border-radius:4px;}
-        .action-panel {position:fixed; right:25px; top:160px; background:white; border:2px solid #333; padding:12px; width:240px; border-radius:8px; box-shadow:0 5px 20px rgba(0,0,0,0.3);}
-        .action-panel button {width:100%; margin:6px 0; font-weight:bold;}
-        table {border-collapse:collapse; background:white; width:100%; max-width:1600px; margin:15px auto; box-shadow:0 4px 15px rgba(0,0,0,0.2);}
-        th, td {border:1px solid #666; padding:9px; text-align:center; min-width:78px;}
+        
+        table {border-collapse:collapse; background:white; width:100%; max-width:1580px; margin:10px 0; box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+        th, td {border:1px solid #666; padding:9px; text-align:center; min-width:75px;}
         th {background:#4a90e2; color:white; font-weight:bold;}
-        .name-col {text-align:left; font-weight:bold; background:#c1e1c1; width:290px; padding-left:15px;}
+        .name-col {text-align:left; font-weight:bold; background:#c1e1c1; width:280px; padding-left:15px;}
         .cell {cursor:pointer; font-weight:bold; height:50px;}
         .P {background:#c1e1c1; color:black;}
         .A {background:#c62828; color:white;}
         .halfA {background:#ab47bc; color:white;}
         .RP {background:#95a5a6; color:white;}
-        .info {text-align:center; color:#1e40af; font-weight:bold; margin:8px;}
+
+        .action-panel {
+            position: fixed;
+            right: 20px;
+            top: 140px;
+            background: white;
+            border: 2px solid #333;
+            padding: 12px;
+            width: 230px;
+            border-radius: 8px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+        .action-panel button {
+            width: 100%;
+            margin: 6px 0;
+            padding: 12px;
+            font-weight: bold;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -37,65 +56,44 @@
     <button id="btnNext">Semaine suivante ►</button>
 </div>
 
-<div style="position:relative;">
-    <table id="planningTable">
+<div style="position:relative; display:flex; gap:20px;">
+    <table id="planningTable" style="flex:1;">
         <thead id="tableHead"></thead>
         <tbody id="tableBody"></tbody>
     </table>
 
+    <!-- Panneau Actions à droite (comme ton Tkinter) -->
     <div class="action-panel">
-        <button onclick="resetChanges()">Réinitialiser récent</button>
-        <button onclick="saveToExcel()" style="background:#000;color:white;">💾 Sauvegarder</button>
-        <button onclick="exportPlanning()" style="background:#e67e22;color:white;">📤 Exporter</button>
-        <button onclick="addAgent()" style="background:#4caf50;color:white;">+ Ajouter Agent</button>
-        <button onclick="deleteAgent()" style="background:#f44336;color:white;">− Supprimer Agent</button>
+        <button onclick="resetChanges()" style="background:#3498db; color:white;">Réinitialiser récent</button>
+        <button onclick="saveToExcel()" style="background:#000; color:white;">💾 Sauvegarder</button>
+        <button onclick="exportPlanning()" style="background:#e67e22; color:white;">📤 Exporter</button>
+        <button onclick="addAgent()" style="background:#4caf50; color:white;">+ Ajouter Agent</button>
+        <button onclick="deleteAgent()" style="background:#f44336; color:white;">− Supprimer Agent</button>
     </div>
 </div>
 
-<div class="info" id="status">Chargement de OP.xlsx depuis GitHub...</div>
+<div style="text-align:center; margin:10px; color:#1e40af; font-weight:bold;" id="status">Base chargée - 35 agents</div>
 
 <script>
-// ==================== CONFIGURATION GITHub ====================
-const EXCEL_URL = "https://raw.githubusercontent.com/DEV7DEP/planning-presence/main/OP.xlsx";
+// ==================== BASE AGENTS (intégrée) ====================
+let agents = [
+    "ABREU FRANCK", "ANDERSON SONI NZEYI", "BENARIOUMILIL KENZI", "BEVZ YURII",
+    "BORREL NICOLAS", "BRAIKI MOUEZ", "CAMPOS JEAN MICHEL", "CHIROU ADAM",
+    "CORS FREDERIC", "COULIBALY LASSANA", "DA CRUZ GEORGES ANTONIO",
+    "DELCUEILLERIE DYLAN", "DESCAMPS JULIEN", "DOMINGOS TONY", "DUMONT JOEL",
+    "EXT PEYRON FABRICE", "GEOFFRAY AURELIEN", "GRANDJEAN JEAN-BAPTISTE",
+    "LOULOU ABDELRANI", "MHEMEDI HISHAM", "MOZIN CHARLIE", "PARADIS BENOIT",
+    "REZLI SMAÏN", "SEON RAPHAEL", "SIDIBE BAKARY", "TECHER TEDDY",
+    "TEISSEDRE ERIC", "THO CHRISTOPHER", "TRIPIER ARTHUR", "VERBRUGGE ALEXIS",
+    "VEYRIER PATRICK"
+];
 
-let agents = [];
 let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
-// ==================== CHARGEMENT AUTOMATIQUE OP.XLSX ====================
-async function loadOPfromGitHub() {
-    document.getElementById('status').textContent = "Chargement de OP.xlsx depuis GitHub...";
-    
-    try {
-        const response = await fetch(EXCEL_URL);
-        if (!response.ok) throw new Error("Fichier non trouvé");
-        
-        const arrayBuffer = await response.arrayBuffer();
-        const workbook = XLSX.read(new Uint8Array(arrayBuffer), {type: 'array'});
-        
-        // Lecture des agents (colonne A, à partir de la ligne 5)
-        const ws = workbook.Sheets[workbook.SheetNames[0]];
-        agents = [];
-        for (let r = 4; r < 100; r++) {
-            const cell = ws[XLSX.utils.encode_cell({r: r, c: 0})];
-            if (!cell || !cell.v) continue;
-            const name = String(cell.v).trim();
-            if (name && name.length > 2) agents.push(name);
-        }
-
-        document.getElementById('status').innerHTML = `✅ ${agents.length} agents chargés depuis GitHub`;
-        buildTable();
-        
-    } catch (error) {
-        document.getElementById('status').innerHTML = `❌ Erreur chargement : ${error.message}<br>Utilisez le bouton ci-dessous pour charger manuellement`;
-        console.error(error);
-    }
-}
-
-// ==================== CONSTRUCTION TABLEAU ====================
+// ==================== TABLEAU ====================
 function buildTable() {
-    // ... (même code que précédemment, je te le donne complet ci-dessous pour éviter les erreurs)
     const dates = [];
     for (let i = 0; i < 14; i++) {
         const d = new Date(currentMonday);
@@ -107,10 +105,12 @@ function buildTable() {
     const tbody = document.getElementById('tableBody');
     thead.innerHTML = ''; tbody.innerHTML = '';
 
+    // En-tête semaines
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" style="background:#d0d7e0">Semaine ${getWeek(dates[0])}</th><th colspan="7" style="background:#d0d7e0">Semaine ${getWeek(dates[7])}</th>`;
     thead.appendChild(weekRow);
 
+    // En-tête jours
     const dayRow = document.createElement('tr');
     dayRow.innerHTML = `<th class="name-col">Nom</th>`;
     dates.forEach(d => {
@@ -121,6 +121,7 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
+    // Lignes agents
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -154,7 +155,6 @@ function buildTable() {
     document.getElementById('weekLabel').textContent = `Semaine ${getWeek(dates[0])} → ${getWeek(dates[7])}`;
 }
 
-// ==================== LES FONCTIONS CLIC (Ctrl / Shift) ====================
 function handleCellClick(e, cell, agent, dateStr, colIndex) {
     if (e.ctrlKey) markColumn(colIndex);
     else if (e.shiftKey) markWeek(agent, colIndex);
@@ -225,8 +225,8 @@ function deleteAgent() { let n=prompt("Nom à supprimer ?"); if(n){agents=agents
 document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate()-7); buildTable(); };
 document.getElementById('btnNext').onclick = () => { currentMonday.setDate(currentMonday.getDate()+7); buildTable(); };
 
-// Lancement automatique
-loadOPfromGitHub();
+// Lancement
+buildTable();
 </script>
 </body>
 </html>
