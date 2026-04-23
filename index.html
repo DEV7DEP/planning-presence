@@ -22,13 +22,11 @@
         .nav {display:flex; justify-content:space-between; align-items:center; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;}
         
         .main-content {display:flex; gap:20px;}
-        
         table {border-collapse:collapse; background:white; flex:1; box-shadow:0 4px 12px rgba(0,0,0,0.15);}
         
         th, td {border:1px solid #666; padding:9px; text-align:center; min-width:75px;}
-        th {background:#4a90e2; color:white; font-weight:bold;}
         
-        /* Figer les deux premières lignes */
+        /* Ligne Semaines - figée */
         .week-header {
             position: sticky;
             top: 0;
@@ -36,19 +34,24 @@
             background:#d0d7e0 !important;
             color: black;
         }
+        
+        /* Ligne Jours - figée juste en dessous */
         .day-header {
             position: sticky;
-            top: 47px;           /* Hauteur de la ligne semaine */
+            top: 47px;        /* Hauteur de la ligne "Semaine" */
             z-index: 30;
             background:#4a90e2 !important;
         }
         
-        /* Cellule top-left en blanc */
-        .top-left {
-            background:#ffffff !important;
-            color:#333 !important;
+        /* Cellule "Nom Prénom" en rouge bordeaux */
+        .name-header {
+            background:#8B0000 !important; 
+            color:white !important; 
             font-weight:bold;
-            border-right: 2px solid #666;
+            width:290px;
+            position: sticky;
+            left: 0;
+            z-index: 40;
         }
         
         .name-col {text-align:left; font-weight:bold; background:#c1e1c1; width:290px; padding-left:15px;}
@@ -169,11 +172,12 @@ function buildTable() {
     weekRow.innerHTML = `<th class="name-col top-left"></th><th colspan="7" class="week-header">Semaine ${getWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getWeek(dates[7])}</th>`;
     thead.appendChild(weekRow);
 
-    // Ligne Jours + Cellule "Nom Prénom" en rouge
+    // Ligne Jours
     const dayRow = document.createElement('tr');
     dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
     dates.forEach(d => {
         const th = document.createElement('th');
+        th.className = "day-header";
         th.textContent = d.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'});
         if (isWeekendOrHoliday(d)) th.style.background = '#95a5a6';
         dayRow.appendChild(th);
