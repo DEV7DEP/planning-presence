@@ -17,7 +17,6 @@
             font-size: 34px;
             cursor: pointer;
             color: #1e40af;
-            z-index: 100;
         }
 
         .nav {display:flex; justify-content:space-between; align-items:center; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;}
@@ -27,7 +26,6 @@
         
         th, td {border:1px solid #666; padding:9px; text-align:center; min-width:75px;}
         
-        /* Ligne Semaines */
         .week-header {
             position: sticky;
             top: 0;
@@ -37,7 +35,6 @@
             height: 48px;
         }
         
-        /* Ligne Jours - collée parfaitement */
         .day-header {
             position: sticky;
             top: 48px;
@@ -45,7 +42,6 @@
             background:#4a90e2 !important;
         }
         
-        /* Cellule Nom Prénom */
         .name-header {
             background:#8B0000 !important; 
             color:white !important; 
@@ -63,7 +59,6 @@
         .halfA {background:#ab47bc; color:white;}
         .RP {background:#95a5a6; color:white;}
 
-        /* MENU */
         .menu-popup {
             display: none;
             position: fixed;
@@ -110,7 +105,6 @@
     </table>
 </div>
 
-<!-- MENU POPUP -->
 <div class="menu-popup" id="menuPopup">
     <button onclick="resetChanges()" style="background:#3498db; color:white;">Réinitialiser récent</button>
     <button onclick="saveToExcel()" style="background:#000000; color:white;">💾 Sauvegarder</button>
@@ -124,7 +118,7 @@
 
 <script>
 // ==================== BASE AGENTS ====================
-let agents = [ /* ... même liste ... */
+let agents = [
     "ABREU FRANCK", "ANDERSON SONI NZEYI", "BENARIOUMILIL KENZI", "BEVZ YURII",
     "BORREL NICOLAS", "BRAIKI MOUEZ", "CAMPOS JEAN MICHEL", "CHIROU ADAM",
     "CORS FREDERIC", "COULIBALY LASSANA", "DA CRUZ GEORGES ANTONIO",
@@ -141,7 +135,7 @@ let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 const MOIS_FR = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
-function updateTitle() { /* ... même fonction ... */
+function updateTitle() {
     const m1 = MOIS_FR[currentMonday.getMonth()];
     const nextM = new Date(currentMonday);
     nextM.setDate(nextM.getDate() + 13);
@@ -155,6 +149,15 @@ function updateTitle() { /* ... même fonction ... */
 function toggleMenu() {
     const menu = document.getElementById('menuPopup');
     menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+}
+
+// ==================== FONCTION SEMAINE CORRIGÉE ====================
+function getWeek(date) {
+    let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return weekNo;
 }
 
 function buildTable() {
@@ -220,46 +223,58 @@ function buildTable() {
     document.getElementById('weekLabel').textContent = `Semaine ${getWeek(dates[0])} → ${getWeek(dates[7])}`;
 }
 
-/* === TOUTES LES FONCTIONS CLIC (inchangées) === */
+// ==================== FONCTIONS CLIC ====================
 function handleCellClick(e, cell, agent, dateStr, colIndex) {
     if (e.ctrlKey) markColumn(colIndex);
     else if (e.shiftKey) markWeek(agent, colIndex);
     else toggleCell(cell, agent, dateStr);
 }
+
 function toggleCell(cell, agent, dateStr) {
     if (cell.textContent === 'P') { cell.textContent = 'A'; cell.className = 'cell A'; }
     else if (cell.textContent === 'A') { cell.textContent = 'P'; cell.className = 'cell P'; }
     updateLocal(agent, dateStr, cell.textContent);
 }
+
 function setHalfAbsent(cell, agent, dateStr) {
     cell.textContent = '½ A';
     cell.className = 'cell halfA';
     updateLocal(agent, dateStr, '½ A');
 }
+
 function updateLocal(agent, dateStr, value) {
     if (!localChanges[agent]) localChanges[agent] = {};
     if (value === 'P') delete localChanges[agent][dateStr];
     else localChanges[agent][dateStr] = value;
 }
-function markColumn(colIndex) { /* ... */ }
-function markWeek(agent, colIndex) { /* ... */ }
+
+function markColumn(colIndex) {
+    document.querySelectorAll('#tableBody tr').forEach(row => {
+        const cell = row.cells[colIndex + 1];
+        if (cell && !cell.classList.contains('RP')) {
+            cell.textContent = 'A'; cell.className = 'cell A';
+        }
+    });
+}
+
+function markWeek(agent, colIndex) {
+    const start = colIndex < 7 ? 0 : 7;
+    const rows = document.querySelectorAll('#tableBody tr');
+    const idx = agents.indexOf(agent);
+    if (idx === -1) return;
+    for (let i = 0; i < 5; i++) {
+        const cell = rows[idx].cells[start + i + 1];
+        if (cell && !cell.classList.contains('RP')) {
+            cell.textContent = 'A'; cell.className = 'cell A';
+        }
+    }
+}
+
 function isWeekendOrHoliday(date) {
     const d = date.getDay();
     const ds = date.toISOString().split('T')[0];
     return d === 0 || d === 6 || FERIES_2026.includes(ds);
 }
-function getWeek(date) { /* ... même fonction ... */ }
-
-// Boutons menu
-function resetChanges() { if(confirm("Réinitialiser tout ?")) { localChanges = {}; buildTable(); toggleMenu(); } }
-function saveToExcel() { alert("💾 Sauvegarde simulée"); toggleMenu(); }
-function exportPlanning() { alert("📤 Export simulé"); toggleMenu(); }
-function addAgent() { let n=prompt("Nom du nouvel agent ?"); if(n){agents.push(n); buildTable(); toggleMenu();} }
-function deleteAgent() { let n=prompt("Nom à supprimer ?"); if(n){agents=agents.filter(a=>a!==n); buildTable(); toggleMenu();} }
-
-// Navigation
-document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate()-7); buildTable(); };
-document.getElementById('btnNext').onclick = () => { currentMonday.setDate(currentMonday.getDate()+7); buildTable(); };
 
 // Lancement
 buildTable();
