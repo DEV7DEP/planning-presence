@@ -3,51 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planning Présence 2026 - DEBUG</title>
-    <style>
-        body {font-family: Arial, sans-serif; margin:20px; background:#f0f0f0;}
-        #status {font-size:18px; padding:15px; background:white; border:2px solid #1e40af; border-radius:8px;}
-        table {border-collapse:collapse; margin-top:20px;}
-        th, td {border:1px solid #666; padding:8px;}
-    </style>
+    <title>Debug Planning</title>
+    <style>body{font-family:Arial;margin:20px;} #status{padding:15px;border:2px solid #333;border-radius:8px;}</style>
 </head>
 <body>
-<h1>Planning Présence - Mode Debug</h1>
+<h1>🔍 Debug Google Sheets</h1>
 <div id="status">Chargement...</div>
-<table id="debugTable"></table>
 
 <script>
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwEnZ6r7ROnKN_LxuoSCNHQ_9t_XDD0bypFTc_w_qqRGCf8ZK_QL3UHFArE2Bicgyur/exec";
 
-async function loadDebug() {
+async function test() {
     const status = document.getElementById('status');
-    status.innerHTML = "🔄 Connexion en cours...";
-
     try {
-        const response = await fetch(SCRIPT_URL);
-        const result = await response.json();
-
-        console.log("Réponse complète :", result);
-
-        let html = `<tr><th>Info</th><th>Valeur</th></tr>`;
-        html += `<tr><td>Nombre total de lignes</td><td>${result.totalRows}</td></tr>`;
-        html += `<tr><td>Premier agent trouvé</td><td>${result.firstAgent ? result.firstAgent[0] + " " + result.firstAgent[1] : "Aucun"}</td></tr>`;
-
-        status.innerHTML = "✅ Données reçues ! Regarde la console (F12) et le tableau ci-dessous.";
-
-        // Affichage des premiers agents
-        let tableHTML = "<tr><th>Ligne</th><th>Nom</th><th>Prénom</th></tr>";
-        result.sampleData.forEach((row, idx) => {
-            tableHTML += `<tr><td>${idx+4}</td><td>${row[1]||''}</td><td>${row[2]||''}</td></tr>`;
-        });
-        document.getElementById('debugTable').innerHTML = tableHTML;
-
-    } catch (err) {
-        status.innerHTML = "❌ Erreur : " + err.message;
+        const r = await fetch(SCRIPT_URL);
+        const data = await r.json();
+        
+        console.log("Réponse brute :", data);
+        
+        if (data.success === false) {
+            status.innerHTML = `<span style="color:red">❌ ${data.error}</span>`;
+        } else {
+            let html = `<b>✅ Connexion OK</b><br>`;
+            html += `Lignes totales : ${data.totalRows}<br>`;
+            html += `Premier agent : ${data.firstFewRows[0] ? data.firstFewRows[0].nom + " " + data.firstFewRows[0].prenom : "Aucun"}<br><br>`;
+            html += "<b>Premiers agents :</b><ul>";
+            data.firstFewRows.forEach(row => {
+                html += `<li>${row.nom} ${row.prenom}</li>`;
+            });
+            html += "</ul>";
+            status.innerHTML = html;
+        }
+    } catch(err) {
+        status.innerHTML = `<span style="color:red">Erreur Fetch : ${err.message}</span>`;
     }
 }
 
-window.onload = loadDebug;
+window.onload = test;
 </script>
 </body>
 </html>
