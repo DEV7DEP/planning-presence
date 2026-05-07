@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planning Présence 2026</title>
     <style>
+        /* Garde ton style existant */
         body {font-family: Calibri, Arial, sans-serif; background:#f0f0f0; margin:0; padding:10px;}
         .header {text-align:center; background:#fff; padding:15px; border-bottom:3px solid #1e40af; position:relative;}
         .title {font-size:32px; font-weight:bold; color:#1e40af; margin:0;}
         .menu-icon {position:absolute; right:25px; top:18px; font-size:34px; cursor:pointer; color:#1e40af;}
         .nav {display:flex; justify-content:space-between; align-items:center; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;}
-        .main-content {display:flex; gap:20px;}
         table {border-collapse:collapse; background:white; flex:1; box-shadow:0 4px 12px rgba(0,0,0,0.15);}
         th, td {border:1px solid #666; padding:9px; text-align:center; min-width:75px;}
         .week-header {position:sticky; top:0; z-index:20; background:#d0d7e0 !important; color:black; height:48px;}
@@ -60,10 +60,10 @@ let planningData = {};
 let currentMonday = new Date(2026, 3, 20);
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
-// ==================== CHARGEMENT AMÉLIORÉ ====================
+// ==================== CHARGEMENT ====================
 async function loadPlanning() {
     const status = document.getElementById('status');
-    status.textContent = "🔄 Chargement depuis Google Sheets...";
+    status.textContent = "🔄 Chargement des agents...";
 
     try {
         const response = await fetch(SCRIPT_URL);
@@ -72,65 +72,52 @@ async function loadPlanning() {
         agents = [];
         planningData = {};
 
-        console.log("Données reçues :", data[0]); // Pour debug
-
-        for (let i = 1; i < data.length; i++) {
+        // On commence à la ligne 4 (index 3)
+        for (let i = 3; i < data.length; i++) {
             const row = data[i];
-            
-            // Adaptation à ta structure de feuille
-            const code = (row[0] || "").trim();     // Colonne A
-            const nom = (row[1] || "").trim();      // Colonne B
-            const prenom = (row[2] || "").trim();   // Colonne C
-
-            if (!nom && !prenom) continue;
-
+            const nom = (row[1] || "").trim();
+            const prenom = (row[2] || "").trim();
             const fullName = `${nom} ${prenom}`.trim();
-            if (fullName.length < 3) continue;
+
+            if (fullName.length < 5) continue;
 
             agents.push(fullName);
             planningData[fullName] = {};
 
-            // Chargement des statuts (à partir de la colonne D = index 3)
             for (let j = 3; j < row.length; j++) {
                 const header = data[0][j];
                 if (header && typeof header === "string" && header.includes("/")) {
                     const dateStr = formatDateForKey(header);
-                    const valeur = String(row[j] || "").trim();
-                    if (valeur) {
-                        planningData[fullName][dateStr] = valeur;
-                    }
+                    const val = String(row[j] || "").trim();
+                    if (val) planningData[fullName][dateStr] = val;
                 }
             }
         }
 
-        status.textContent = `✅ ${agents.length} agents chargés avec succès`;
+        status.textContent = `✅ ${agents.length} agents chargés`;
         buildTable();
     } catch (err) {
         console.error(err);
-        status.textContent = "❌ Erreur de chargement";
+        status.textContent = "❌ Erreur";
     }
 }
 
 function formatDateForKey(dateStr) {
     const parts = String(dateStr).split('/');
-    if (parts.length === 3) {
-        return `2026-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
-    }
+    if (parts.length === 3) return `2026-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
     return dateStr;
 }
 
 // ==================== SAUVEGARDE ====================
 async function saveToSheet(agent, dateStr, value) {
-    try {
-        await fetch(SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify([{ agent, date: dateStr, value }]),
-            headers: { 'Content-Type': 'application/json' }
-        });
-    } catch (e) { console.error(e); }
+    await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify([{ agent, date: dateStr, value }]),
+        headers: { 'Content-Type': 'application/json' }
+    });
 }
 
-// ==================== TABLEAU ====================
+// ==================== TABLEAU (simplifié) ====================
 function buildTable() {
     const dates = [];
     for (let i = 0; i < 14; i++) {
@@ -144,12 +131,11 @@ function buildTable() {
     thead.innerHTML = '';
     tbody.innerHTML = '';
 
-    // En-têtes semaines
+    // Headers
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getWeek(dates[7])}</th>`;
     thead.appendChild(weekRow);
 
-    // En-têtes jours
     const dayRow = document.createElement('tr');
     dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
     dates.forEach(d => {
@@ -161,7 +147,6 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Lignes des agents
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -179,16 +164,15 @@ function buildTable() {
                 td.classList.add('P');
             }
 
-            if (planningData[agent] && planningData[agent][dateStr]) {
+            if (planningData[agent]?.[dateStr]) {
                 const val = planningData[agent][dateStr];
                 td.textContent = val;
                 if (val === 'A') td.className = 'cell A';
                 else if (val.includes('½')) td.className = 'cell halfA';
             }
 
-            td.addEventListener('click', () => toggleCell(td, agent, dateStr));
-            td.addEventListener('contextmenu', e => { e.preventDefault(); setHalfAbsent(td, agent, dateStr); });
-
+            td.onclick = () => toggleCell(td, agent, dateStr);
+            td.oncontextmenu = e => { e.preventDefault(); setHalfAbsent(td, agent, dateStr); };
             row.appendChild(td);
         });
         tbody.appendChild(row);
@@ -198,7 +182,7 @@ function buildTable() {
 }
 
 function toggleCell(cell, agent, dateStr) {
-    let newValue = (cell.textContent === 'P' || cell.textContent === '½ A') ? 'A' : 'P';
+    let newValue = (cell.textContent === 'P' || cell.textContent.includes('½')) ? 'A' : 'P';
     cell.textContent = newValue;
     cell.className = newValue === 'A' ? 'cell A' : 'cell P';
     saveToSheet(agent, dateStr, newValue);
@@ -225,14 +209,14 @@ function isWeekendOrHoliday(date) {
 
 function toggleMenu() {
     const menu = document.getElementById('menuPopup');
-    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+    menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
 }
 
 function resetChanges() {
-    if(confirm("Réinitialiser tout ?")) { planningData = {}; buildTable(); }
+    if(confirm("Réinitialiser ?")) { planningData = {}; buildTable(); }
 }
 
-function exportPlanning() { alert("Export Excel bientôt disponible"); }
+function exportPlanning() { alert("Export bientôt disponible"); }
 
 // Lancement
 window.onload = loadPlanning;
