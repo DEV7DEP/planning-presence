@@ -57,12 +57,12 @@
 <div style="text-align:center; margin:15px; color:#1e40af; font-weight:bold;" id="status">Chargement...</div>
 
 <script>
-// ==================== CONFIG ====================
+// ==================== CONFIGURATION ====================
 const XLSX_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRmNxgEeK7YsXD5FeYywbJ4QTP5IHgIOUM3pzSduy9W9I70zxru_SrvBLWtmqe3YKOWljrVRQisCA2p/pub?output=xlsx";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwEnZ6r7ROnKN_LxuoSCNHQ_9t_XDD0bypFTc_w_qqRGCf8ZK_QL3UHFArE2Bicgyur/exec";
 
 let agents = [];
-let currentMonday = new Date(2026, 3, 20); // 20 Avril 2026
+let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
@@ -75,8 +75,7 @@ async function loadPlanningFromGoogleSheet() {
         const response = await fetch(XLSX_URL);
         const arrayBuffer = await response.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        const data = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
 
         agents = [];
         for (let i = 3; i < data.length; i++) {
@@ -91,7 +90,7 @@ async function loadPlanningFromGoogleSheet() {
         status.textContent = `✅ ${agents.length} agents chargés`;
         buildTable();
     } catch (e) {
-        status.textContent = "❌ Erreur chargement";
+        status.textContent = "❌ Erreur de chargement";
         console.error(e);
     }
 }
@@ -127,8 +126,8 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Lignes agents
-    agents.forEach((agent, idx) => {
+    // Agents
+    agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
 
@@ -145,7 +144,6 @@ function buildTable() {
                 td.classList.add('P');
             }
 
-            // Appliquer les modifications locales
             if (localChanges[agent] && localChanges[agent][dateStr]) {
                 const val = localChanges[agent][dateStr];
                 td.textContent = val;
@@ -153,10 +151,7 @@ function buildTable() {
             }
 
             td.addEventListener('click', () => toggleCell(td, agent, dateStr));
-            td.addEventListener('contextmenu', e => {
-                e.preventDefault();
-                setHalfAbsent(td, agent, dateStr);
-            });
+            td.addEventListener('contextmenu', e => { e.preventDefault(); setHalfAbsent(td, agent, dateStr); });
 
             row.appendChild(td);
         });
@@ -176,10 +171,7 @@ function applyCellStyle(cell, value) {
 
 function toggleCell(cell, agent, dateStr) {
     let val = cell.textContent;
-    if (val === 'P') val = 'A';
-    else if (val === 'A') val = 'P';
-    else val = 'P';
-
+    val = (val === 'P') ? 'A' : 'P';
     cell.textContent = val;
     applyCellStyle(cell, val);
 
@@ -202,31 +194,31 @@ async function saveToGoogleSheet() {
     }
 
     const status = document.getElementById('status');
-    status.textContent = "Sauvegarde en cours vers Google Sheets...";
+    status.textContent = "Sauvegarde en cours...";
 
     try {
         const response = await fetch(APPS_SCRIPT_URL, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ changes: localChanges })
         });
 
         if (response.ok) {
-            status.textContent = "✅ Sauvegardé avec succès !";
+            status.textContent = "✅ Sauvegardé avec succès dans Google Sheets !";
             localChanges = {};
             setTimeout(loadPlanningFromGoogleSheet, 1500);
         } else {
-            throw new Error("Erreur");
+            throw new Error("Erreur serveur");
         }
     } catch (e) {
         status.textContent = "❌ Erreur de sauvegarde";
         console.error(e);
-        alert("Erreur lors de la sauvegarde. Vérifie ton Apps Script.");
+        alert("Erreur lors de la sauvegarde. Vérifie la console (F12).");
     }
 }
 
 function resetChanges() {
-    if (confirm("Réinitialiser toutes les modifications ?")) {
+    if (confirm("Réinitialiser toutes les modifications locales ?")) {
         localChanges = {};
         loadPlanningFromGoogleSheet();
     }
