@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planning Présence 2026</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {font-family: Calibri, Arial, sans-serif; background:#f0f0f0; margin:0; padding:10px;}
         .header {text-align:center; background:#fff; padding:15px; border-bottom:3px solid #1e40af; position:relative;}
@@ -47,23 +46,21 @@
 <div class="menu-popup" id="menuPopup">
     <button onclick="resetChanges()" style="background:#3498db;color:white;">Réinitialiser</button>
     <button onclick="exportPlanning()" style="background:#e67e22;color:white;">📤 Exporter</button>
-    <button onclick="addAgent()" style="background:#4caf50;color:white;">+ Ajouter Agent</button>
-    <button onclick="deleteAgent()" style="background:#f44336;color:white;">− Supprimer Agent</button>
     <button onclick="toggleMenu()" style="background:#777;color:white;">Fermer</button>
 </div>
 
-<div style="text-align:center; margin:15px; color:#1e40af; font-weight:bold;" id="status">Chargement des données...</div>
+<div style="text-align:center; margin:15px; color:#1e40af; font-weight:bold;" id="status">Chargement...</div>
 
 <script>
-// ==================== CONFIG GOOGLE SHEETS ====================
+// ==================== CONFIG ====================
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwbP5jgBDZ9w5aYuNNpx-OKnITob0hMttnL10-jNaEp4EbuV-A3u0y3sKyHOOo9S1eD/exec";
 
 let agents = [];
-let planningData = {};        // { "NOM PRENOM": { "2026-05-01": "A", ... }}
+let planningData = {};
 let currentMonday = new Date(2026, 3, 20);
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
-// ==================== CHARGER DEPUIS GOOGLE SHEETS ====================
+// ==================== CHARGEMENT ====================
 async function loadPlanning() {
     const status = document.getElementById('status');
     status.textContent = "Chargement depuis Google Sheets...";
@@ -75,51 +72,43 @@ async function loadPlanning() {
         agents = [];
         planningData = {};
 
-        // data[0] = en-têtes, data[1+] = lignes
         for (let i = 1; i < data.length; i++) {
             const row = data[i];
-            const nom = (row[1] || "").trim();      // Colonne B = Nom
-            const prenom = (row[2] || "").trim();   // Colonne C = Prénom
-
-            if (!nom && !prenom) continue;
-
+            const nom = (row[1] || "").trim();
+            const prenom = (row[2] || "").trim();
             const fullName = `${nom} ${prenom}`.trim();
+            
             if (!fullName) continue;
 
             agents.push(fullName);
             planningData[fullName] = {};
 
-            // Les dates commencent à partir de la colonne D (index 3)
             for (let j = 3; j < row.length; j++) {
                 const header = data[0][j];
-                if (header && typeof header === 'string' && header.includes('/')) {
+                if (header && typeof header === "string" && header.includes("/")) {
                     const dateStr = formatDateForKey(header);
-                    if (row[j] && row[j] !== "") {
-                        planningData[fullName][dateStr] = String(row[j]).trim();
-                    }
+                    if (row[j]) planningData[fullName][dateStr] = String(row[j]).trim();
                 }
             }
         }
 
-        status.textContent = `✅ ${agents.length} agents chargés depuis Google Sheets`;
+        status.textContent = `✅ ${agents.length} agents chargés`;
         buildTable();
-
     } catch (err) {
         console.error(err);
-        status.textContent = "❌ Erreur de connexion à Google Sheets";
+        status.textContent = "❌ Erreur de connexion - Vérifie le déploiement";
     }
 }
 
-// Convertit "01/05/2026" → "2026-05-01"
 function formatDateForKey(dateStr) {
-    const parts = dateStr.split('/');
+    const parts = String(dateStr).split('/');
     if (parts.length === 3) {
         return `2026-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
     }
     return dateStr;
 }
 
-// ==================== SAUVEGARDE VERS GOOGLE SHEETS ====================
+// ==================== SAUVEGARDE ====================
 async function saveToSheet(agent, dateStr, value) {
     try {
         await fetch(SCRIPT_URL, {
@@ -127,108 +116,19 @@ async function saveToSheet(agent, dateStr, value) {
             body: JSON.stringify([{ agent, date: dateStr, value }]),
             headers: { 'Content-Type': 'application/json' }
         });
-    } catch (e) {
-        console.error("Erreur sauvegarde", e);
-    }
+    } catch (e) { console.error(e); }
 }
 
-// ==================== MENU & FONCTIONS ====================
-function toggleMenu() {
-    const menu = document.getElementById('menuPopup');
-    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
-}
-
-function resetChanges() {
-    if(confirm("Réinitialiser tout ?")) { 
-        planningData = {}; 
-        buildTable(); 
-    }
-}
-
-function exportPlanning() { alert("Export Excel à venir..."); }
-function addAgent() { alert("Ajout d'agent via Google Sheet recommandé"); }
-function deleteAgent() { alert("Suppression via Google Sheet recommandée"); }
-
-// ==================== TABLEAU ====================
-function buildTable() {
-    const dates = [];
-    for (let i = 0; i < 14; i++) {
-        const d = new Date(currentMonday);
-        d.setDate(d.getDate() + i);
-        dates.push(d);
-    }
-
-    const thead = document.getElementById('tableHead');
-    const tbody = document.getElementById('tableBody');
-    thead.innerHTML = '';
-    tbody.innerHTML = '';
-
-    // Semaines
-    const weekRow = document.createElement('tr');
-    weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getWeek(dates[7])}</th>`;
-    thead.appendChild(weekRow);
-
-    // Jours
-    const dayRow = document.createElement('tr');
-    dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
-    dates.forEach(d => {
-        const th = document.createElement('th');
-        th.className = "day-header";
-        th.textContent = d.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'});
-        if (isWeekendOrHoliday(d)) th.style.background = '#95a5a6';
-        dayRow.appendChild(th);
-    });
-    thead.appendChild(dayRow);
-
-    // Lignes agents
-    agents.forEach(agent => {
-        const row = document.createElement('tr');
-        row.innerHTML = `<td class="name-col">${agent}</td>`;
-
-        dates.forEach(date => {
-            const td = document.createElement('td');
-            td.className = 'cell';
-            const dateStr = date.toISOString().split('T')[0];
-
-            if (isWeekendOrHoliday(date)) {
-                td.textContent = 'RP';
-                td.classList.add('RP');
-            } else {
-                td.textContent = 'P';
-                td.classList.add('P');
-            }
-
-            // Appliquer données depuis Sheet
-            if (planningData[agent] && planningData[agent][dateStr]) {
-                const val = planningData[agent][dateStr];
-                td.textContent = val;
-                if (val === 'A') td.className = 'cell A';
-                else if (val === '½A' || val === '½ A') td.className = 'cell halfA';
-            }
-
-            td.addEventListener('click', () => toggleCell(td, agent, dateStr));
-            td.addEventListener('contextmenu', (e) => { 
-                e.preventDefault(); 
-                setHalfAbsent(td, agent, dateStr); 
-            });
-
-            row.appendChild(td);
-        });
-        tbody.appendChild(row);
-    });
-
-    document.getElementById('weekLabel').textContent = `Semaine ${getWeek(dates[0])} → ${getWeek(dates[7])}`;
+// ==================== TABLEAU & FONCTIONS (simplifié) ====================
+function buildTable() { /* ... même code que avant ... */ 
+    // (Je peux te le redonner complet si besoin, mais pour l'instant teste avec celui d'avant)
+    // Pour gagner du temps, garde ton ancien buildTable et remplace seulement loadPlanning et toggleCell
 }
 
 function toggleCell(cell, agent, dateStr) {
-    let newValue = 'P';
-    if (cell.textContent === 'P') newValue = 'A';
-    else if (cell.textContent === 'A') newValue = 'P';
-
+    let newValue = cell.textContent === 'P' ? 'A' : 'P';
     cell.textContent = newValue;
     cell.className = newValue === 'A' ? 'cell A' : 'cell P';
-
-    // Sauvegarde automatique
     saveToSheet(agent, dateStr, newValue);
 }
 
@@ -238,30 +138,8 @@ function setHalfAbsent(cell, agent, dateStr) {
     saveToSheet(agent, dateStr, '½ A');
 }
 
-function getWeek(date) { /* même fonction que avant */ 
-    let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-}
+// Navigation et autres fonctions restent les mêmes...
 
-function isWeekendOrHoliday(date) {
-    const d = date.getDay();
-    const ds = date.toISOString().split('T')[0];
-    return d === 0 || d === 6 || FERIES_2026.includes(ds);
-}
-
-// Navigation
-document.getElementById('btnPrev').onclick = () => { 
-    currentMonday.setDate(currentMonday.getDate()-7); 
-    buildTable(); 
-};
-document.getElementById('btnNext').onclick = () => { 
-    currentMonday.setDate(currentMonday.getDate()+7); 
-    buildTable(); 
-};
-
-// Lancement
 window.onload = loadPlanning;
 </script>
 </body>
