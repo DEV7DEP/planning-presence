@@ -48,30 +48,52 @@
     <button onclick="resetChanges()" style="background:#3498db;color:white;">Réinitialiser</button>
     <button onclick="saveToExcel()" style="background:#000;color:white;">💾 Sauvegarder en Excel</button>
     <button onclick="exportPlanning()" style="background:#e67e22;color:white;">📤 Exporter</button>
-    <button onclick="addAgent()" style="background:#4caf50;color:white;">+ Ajouter Agent</button>
-    <button onclick="deleteAgent()" style="background:#f44336;color:white;">− Supprimer Agent</button>
     <button onclick="toggleMenu()" style="background:#777;color:white;">Fermer</button>
 </div>
 
-<div style="text-align:center; margin:15px; color:#1e40af; font-weight:bold;" id="status">Prêt</div>
+<div style="text-align:center; margin:15px; color:#1e40af; font-weight:bold;" id="status">Chargement des données...</div>
 
 <script>
-// ==================== VARIABLES ====================
-let agents = [
-    "ABREU FRANCK", "ANDERSON SONI NZEYI", "BENARIOUMILIL KENZI", "BEVZ YURII",
-    "BORREL NICOLAS", "BRAIKI MOUEZ", "CAMPOS JEAN MICHEL", "CHIROU ADAM",
-    "CORS FREDERIC", "COULIBALY LASSANA", "DA CRUZ GEORGES ANTONIO",
-    "DELCUEILLERIE DYLAN", "DESCAMPS JULIEN", "DOMINGOS TONY", "DUMONT JOEL",
-    "EXT PEYRON FABRICE", "GEOFFRAY AURELIEN", "GRANDJEAN JEAN-BAPTISTE",
-    "LOULOU ABDELRANI", "MHEMEDI HISHAM", "MOZIN CHARLIE", "PARADIS BENOIT",
-    "REZLI SMAÏN", "SEON RAPHAEL", "SIDIBE BAKARY", "TECHER TEDDY",
-    "TEISSEDRE ERIC", "THO CHRISTOPHER", "TRIPIER ARTHUR", "VERBRUGGE ALEXIS",
-    "VEYRIER PATRICK"
-];
+// ==================== CONFIGURATION GOOGLE SHEET ====================
+const XLSX_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRmNxgEeK7YsXD5FeYywbJ4QTP5IHgIOUM3pzSduy9W9I70zxru_SrvBLWtmqe3YKOWljrVRQisCA2p/pub?output=xlsx";
 
+// ==================== VARIABLES ====================
+let agents = [];
+let planningData = {}; // Données chargées depuis Google Sheet
 let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
+
+// ==================== CHARGEMENT DES DONNÉES ====================
+async function loadPlanningFromGoogleSheet() {
+    const status = document.getElementById('status');
+    status.textContent = "Chargement du planning depuis Google Sheets...";
+    
+    try {
+        const response = await fetch(XLSX_URL);
+        const arrayBuffer = await response.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        // Extraction des agents (première colonne)
+        agents = [];
+        for (let i = 1; i < jsonData.length; i++) {
+            if (jsonData[i][0] && jsonData[i][0].toString().trim() !== "") {
+                agents.push(jsonData[i][0].toString().trim());
+            }
+        }
+
+        status.textContent = `✅ ${agents.length} agents chargés depuis Google Sheets`;
+        buildTable();
+        
+    } catch (error) {
+        console.error(error);
+        status.textContent = "❌ Erreur de chargement. Vérifie que le lien est bien publié en XLSX.";
+    }
+}
 
 // ==================== MENU ====================
 function toggleMenu() {
@@ -79,33 +101,9 @@ function toggleMenu() {
     menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
 }
 
-// ==================== BOUTONS MENU ====================
-function resetChanges() {
-    if(confirm("Réinitialiser tout le planning ?")) { 
-        localChanges = {}; 
-        buildTable(); 
-    }
-}
-function saveToExcel() {
-    alert("💾 Fonction de sauvegarde Excel activée (à développer)");
-}
-function exportPlanning() {
-    alert("📤 Export en cours de développement");
-}
-function addAgent() {
-    let n = prompt("Nom complet du nouvel agent ?");
-    if(n){ agents.push(n); buildTable(); }
-}
-function deleteAgent() {
-    let n = prompt("Nom de l'agent à supprimer ?");
-    if(n){ 
-        agents = agents.filter(a => a !== n); 
-        buildTable(); 
-    }
-}
-
 // ==================== TABLEAU ====================
 function buildTable() {
+    // ... (le reste du code buildTable reste identique)
     const dates = [];
     for (let i = 0; i < 14; i++) {
         const d = new Date(currentMonday);
@@ -135,7 +133,7 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Agents
+    // Agents + cellules
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -174,6 +172,7 @@ function buildTable() {
     document.getElementById('weekLabel').textContent = `Semaine ${getWeek(dates[0])} → ${getWeek(dates[7])}`;
 }
 
+// ==================== FONCTIONS EXISTANTES (inchangées) ====================
 function toggleCell(cell, agent, dateStr) {
     if (cell.textContent === 'P') {
         cell.textContent = 'A';
@@ -182,7 +181,6 @@ function toggleCell(cell, agent, dateStr) {
         cell.textContent = 'P';
         cell.className = 'cell P';
     }
-    // Sauvegarde locale
     if (!localChanges[agent]) localChanges[agent] = {};
     localChanges[agent][dateStr] = cell.textContent;
 }
@@ -218,7 +216,7 @@ document.getElementById('btnNext').onclick = () => {
 };
 
 // Lancement
-buildTable();
+window.onload = loadPlanningFromGoogleSheet;
 </script>
 </body>
 </html>
