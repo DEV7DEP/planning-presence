@@ -10,7 +10,6 @@
         .title {font-size:32px; font-weight:bold; color:#1e40af; margin:0;}
         .menu-icon {position:absolute; right:25px; top:18px; font-size:34px; cursor:pointer; color:#1e40af;}
         .nav {display:flex; justify-content:space-between; align-items:center; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;}
-        .main-content {display:flex; gap:20px;}
         table {border-collapse:collapse; background:white; flex:1; box-shadow:0 4px 12px rgba(0,0,0,0.15);}
         th, td {border:1px solid #666; padding:9px; text-align:center; min-width:75px;}
         .week-header {position:sticky; top:0; z-index:20; background:#d0d7e0 !important; color:black; height:48px;}
@@ -52,7 +51,7 @@
 <div style="text-align:center; margin:15px; color:#1e40af; font-weight:bold;" id="status">Chargement...</div>
 
 <script>
-// ==================== TA NOUVELLE URL ====================
+// ==================== CONFIG ====================
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwEnZ6r7ROnKN_LxuoSCNHQ_9t_XDD0bypFTc_w_qqRGCf8ZK_QL3UHFArE2Bicgyur/exec";
 
 let agents = [];
@@ -60,44 +59,48 @@ let planningData = {};
 let currentMonday = new Date(2026, 3, 20);
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
-// ==================== CHARGEMENT ====================
+// ==================== CHARGEMENT CORRIGÉ ====================
 async function loadPlanning() {
     const status = document.getElementById('status');
-    status.textContent = "🔄 Chargement des agents depuis REM MEM...";
+    status.textContent = "🔄 Lecture de l'onglet REM MEM...";
 
     try {
         const response = await fetch(SCRIPT_URL);
-        const data = await response.json();
+        const result = await response.json();
+
+        console.log("Données brutes reçues :", result);   // ← Ouvre F12 pour voir
 
         agents = [];
         planningData = {};
 
-        // Commence à la ligne 4 (index 3)
-        for (let i = 3; i < data.length; i++) {
-            const row = data[i];
-            const nom = (row[1] || "").trim();
-            const prenom = (row[2] || "").trim();
+        // On force la lecture à partir de la ligne 4
+        for (let i = 3; i < result.length; i++) {
+            const row = result[i];
+            if (!row) continue;
+
+            const nom = String(row[1] || "").trim();
+            const prenom = String(row[2] || "").trim();
             const fullName = `${nom} ${prenom}`.trim();
 
-            if (fullName.length < 5) continue;
+            if (fullName.length > 5) {
+                agents.push(fullName);
+                planningData[fullName] = {};
 
-            agents.push(fullName);
-            planningData[fullName] = {};
-
-            // Chargement des statuts à partir de la colonne D
-            for (let j = 3; j < row.length; j++) {
-                const header = data[0][j];
-                if (header && typeof header === "string" && header.includes("/")) {
-                    const dateStr = formatDateForKey(header);
-                    const val = String(row[j] || "").trim();
-                    if (val && val !== "RP") {
-                        planningData[fullName][dateStr] = val;
+                // Lecture des statuts
+                for (let j = 3; j < row.length; j++) {
+                    const header = result[0][j];
+                    if (header && String(header).includes('/')) {
+                        const dateStr = formatDateForKey(header);
+                        const val = String(row[j] || "").trim();
+                        if (val) planningData[fullName][dateStr] = val;
                     }
                 }
             }
         }
 
-        status.textContent = `✅ ${agents.length} agents chargés avec succès`;
+        status.textContent = `✅ ${agents.length} agents chargés`;
+        if (agents.length === 0) status.innerHTML += "<br><small>Vérifie la console F12</small>";
+
         buildTable();
     } catch (err) {
         console.error(err);
@@ -124,8 +127,9 @@ async function saveToSheet(agent, dateStr, value) {
     } catch (e) { console.error(e); }
 }
 
-// ==================== TABLEAU ====================
+// ==================== TABLEAU (inchangé) ====================
 function buildTable() {
+    // ... (même fonction que précédemment)
     const dates = [];
     for (let i = 0; i < 14; i++) {
         const d = new Date(currentMonday);
@@ -138,12 +142,10 @@ function buildTable() {
     thead.innerHTML = '';
     tbody.innerHTML = '';
 
-    // Semaines
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getWeek(dates[7])}</th>`;
     thead.appendChild(weekRow);
 
-    // Jours
     const dayRow = document.createElement('tr');
     dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
     dates.forEach(d => {
@@ -155,7 +157,6 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Agents
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -181,8 +182,7 @@ function buildTable() {
             }
 
             td.addEventListener('click', () => toggleCell(td, agent, dateStr));
-            td.addEventListener('contextmenu', (e) => { e.preventDefault(); setHalfAbsent(td, agent, dateStr); });
-
+            td.addEventListener('contextmenu', e => { e.preventDefault(); setHalfAbsent(td, agent, dateStr); });
             row.appendChild(td);
         });
         tbody.appendChild(row);
@@ -223,10 +223,10 @@ function toggleMenu() {
 }
 
 function resetChanges() {
-    if(confirm("Réinitialiser tout ?")) { planningData = {}; buildTable(); }
+    if(confirm("Réinitialiser ?")) { planningData = {}; buildTable(); }
 }
 
-function exportPlanning() { alert("Export à venir"); }
+function exportPlanning() { alert("Export bientôt disponible"); }
 
 // Lancement
 window.onload = loadPlanning;
