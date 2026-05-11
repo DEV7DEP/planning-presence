@@ -10,15 +10,15 @@
         .header {text-align:center; background:#fff; padding:15px; border-bottom:3px solid #1e40af; position:relative;}
         .title {font-size:32px; font-weight:bold; color:#1e40af; margin:0;}
         .menu-icon {position:absolute; right:25px; top:18px; font-size:34px; cursor:pointer; color:#1e40af;}
-        
+       
         .nav {display:flex; justify-content:space-between; align-items:center; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;}
         table {border-collapse:collapse; background:white; width:100%; box-shadow:0 4px 12px rgba(0,0,0,0.15);}
         th, td {border:1px solid #666; padding:8px; text-align:center; min-width:65px; font-size:14px;}
-        .week-header {position:sticky; top:0; z-index:20; background:#d0d7e0 !important; color:black; height:45px; font-size:16px;}
+        .week-header {position:sticky; top:0; z-index:20; background:#d0d7e0 !important; color:black; height:45px; font-size:16px; font-weight:bold;}
         .day-header {position:sticky; top:45px; z-index:30; background:#4a90e2 !important; color:white; font-weight:bold;}
         .name-header {background:#8B0000 !important; color:white !important; font-weight:bold; width:280px; position:sticky; left:0; z-index:40;}
         .name-col {text-align:left; font-weight:bold; background:#c1e1c1; width:280px; padding-left:12px; position:sticky; left:0; z-index:10;}
-        
+       
         .cell {cursor:pointer; font-weight:bold; height:52px; user-select:none;}
         .P {background:#c1e1c1; color:black;}
         .A {background:#c62828; color:white;}
@@ -27,52 +27,66 @@
     </style>
 </head>
 <body>
-
 <div class="header">
     <h1 class="title">Planning Présence 2026</h1>
     <span class="menu-icon" onclick="toggleMenu()">☰</span>
 </div>
-
 <div class="nav">
     <button id="btnPrev">◄ Semaine précédente</button>
-    <span id="weekLabel" style="font-size:22px; font-weight:bold;">Semaine XX → XX</span>
+    <span id="weekLabel" style="font-size:22px; font-weight:bold;"></span>
     <button id="btnNext">Semaine suivante ►</button>
 </div>
-
 <div style="text-align:center; margin:10px;">
     <button onclick="exportFullPlanning()" style="background:#27ae60;color:white;padding:12px 20px;font-size:16px;">
         💾 Exporter Planning Complet (Excel)
     </button>
     <button onclick="resetChanges()" style="background:#e74c3c;color:white;padding:12px 20px;font-size:16px;">🔄 Réinitialiser</button>
 </div>
-
 <table id="planningTable">
     <thead id="tableHead"></thead>
     <tbody id="tableBody"></tbody>
 </table>
-
 <div style="text-align:center; margin:15px; color:#1e40af; font-weight:bold;" id="status">Chargement...</div>
 
 <script>
 // ==================== CONFIG ====================
 const XLSX_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRmNxgEeK7YsXD5FeYywbJ4QTP5IHgIOUM3pzSduy9W9I70zxru_SrvBLWtmqe3YKOWljrVRQisCA2p/pub?output=xlsx";
-
 let agents = [];
-let currentMonday = new Date(2026, 3, 20);
+let currentMonday = new Date(2026, 3, 20); // 20 avril 2026
 let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
+
+// ==================== UTILITAIRES ====================
+function getISOWeek(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return weekNo;
+}
+
+function isWeekendOrHoliday(date) {
+    const day = date.getDay();
+    if (day === 0 || day === 6) return true;
+    const dateStr = date.toISOString().split('T')[0];
+    return FERIES_2026.includes(dateStr);
+}
+
+function formatDateHeader(date) {
+    return date.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'});
+}
 
 // ==================== CHARGEMENT ====================
 async function loadPlanning() {
     const status = document.getElementById('status');
     status.textContent = "Chargement depuis Google Sheets...";
-   
+  
     try {
         const response = await fetch(XLSX_URL);
         const arrayBuffer = await response.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         const data = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
-
+        
         agents = [];
         for (let i = 3; i < data.length; i++) {
             const row = data[i];
@@ -90,7 +104,7 @@ async function loadPlanning() {
     }
 }
 
-// ==================== TABLEAU ====================
+// ==================== CONSTRUCTION TABLEAU ====================
 function buildTable() {
     const dates = [];
     for (let i = 0; i < 14; i++) {
@@ -104,21 +118,28 @@ function buildTable() {
     thead.innerHTML = '';
     tbody.innerHTML = '';
 
+    // Ligne Semaines
     const weekRow = document.createElement('tr');
-    weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getWeek(dates[7])}</th>`;
+    weekRow.innerHTML = `
+        <th class="name-col"></th>
+        <th colspan="7" class="week-header">Semaine ${getISOWeek(dates[0])}</th>
+        <th colspan="7" class="week-header">Semaine ${getISOWeek(dates[7])}</th>
+    `;
     thead.appendChild(weekRow);
 
+    // Ligne Jours
     const dayRow = document.createElement('tr');
     dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
     dates.forEach(date => {
         const th = document.createElement('th');
         th.className = "day-header";
-        th.textContent = date.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'});
+        th.textContent = formatDateHeader(date);
         if (isWeekendOrHoliday(date)) th.style.background = '#95a5a6';
         dayRow.appendChild(th);
     });
     thead.appendChild(dayRow);
 
+    // Lignes Agents
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -139,9 +160,9 @@ function buildTable() {
 
             if (!isRP) {
                 td.addEventListener('click', (e) => toggleCell(td, agent, dateStr, e));
-                td.addEventListener('contextmenu', e => { 
-                    e.preventDefault(); 
-                    setHalfAbsent(td, agent, dateStr); 
+                td.addEventListener('contextmenu', e => {
+                    e.preventDefault();
+                    setHalfAbsent(td, agent, dateStr);
                 });
             }
             row.appendChild(td);
@@ -149,51 +170,59 @@ function buildTable() {
         tbody.appendChild(row);
     });
 
-    document.getElementById('weekLabel').textContent = `Semaine ${getWeek(dates[0])} → ${getWeek(dates[7])}`;
+    document.getElementById('weekLabel').textContent = 
+        `Semaine ${getISOWeek(dates[0])} → ${getISOWeek(dates[7])}`;
 }
 
 function applyCellStyle(cell, value) {
     cell.className = 'cell';
     if (value === 'A') cell.classList.add('A');
-    else if (value.includes('½')) cell.classList.add('halfA');
+    else if (value === '½ A' || value.includes('½')) cell.classList.add('halfA');
     else if (value === 'RP') cell.classList.add('RP');
     else cell.classList.add('P');
 }
 
-// ==================== GESTION CLICS ====================
+// ==================== INTERACTIONS ====================
 function toggleCell(cell, agent, dateStr, e) {
     let newVal;
     if (e.ctrlKey || e.metaKey) {
-        newVal = toggleRow(agent, dateStr);
-    } else if (e.altKey) {
-        newVal = toggleColumn(dateStr);
-    } else {
-        let val = cell.textContent.trim();
-        newVal = (val === 'P') ? 'A' : 'P';
-        if (!localChanges[agent]) localChanges[agent] = {};
-        localChanges[agent][dateStr] = newVal;
+        toggleRow(agent, dateStr);
+        buildTable();
+        return;
     }
+    if (e.altKey) {
+        toggleColumn(dateStr);
+        buildTable();
+        return;
+    }
+
+    const current = cell.textContent.trim();
+    newVal = (current === 'P') ? 'A' : 'P';
+
+    if (!localChanges[agent]) localChanges[agent] = {};
+    localChanges[agent][dateStr] = newVal;
     buildTable();
 }
 
-function toggleRow(agent, dateStr) { /* ... */ 
-    // Code identique à la version précédente
+function toggleRow(agent, dateStr) {
     const targetDate = new Date(dateStr);
-    let isAllA = true;
+    const startOfWeek = new Date(targetDate);
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1); // lundi
+
+    let allAbsent = true;
     for (let i = 0; i < 7; i++) {
-        const d = new Date(targetDate);
-        d.setDate(d.getDate() - d.getDay() + i);
+        const d = new Date(startOfWeek);
+        d.setDate(d.getDate() + i);
         if (!isWeekendOrHoliday(d)) {
             const ds = d.toISOString().split('T')[0];
-            const current = localChanges[agent]?.[ds] || 'P';
-            if (current !== 'A') isAllA = false;
+            if ((localChanges[agent]?.[ds] || 'P') !== 'A') allAbsent = false;
         }
     }
-    const newVal = isAllA ? 'P' : 'A';
 
+    const newVal = allAbsent ? 'P' : 'A';
     for (let i = 0; i < 7; i++) {
-        const d = new Date(targetDate);
-        d.setDate(d.getDate() - d.getDay() + i);
+        const d = new Date(startOfWeek);
+        d.setDate(d.getDate() + i);
         if (!isWeekendOrHoliday(d)) {
             const ds = d.toISOString().split('T')[0];
             if (!localChanges[agent]) localChanges[agent] = {};
@@ -202,8 +231,8 @@ function toggleRow(agent, dateStr) { /* ... */
     }
 }
 
-function toggleColumn(dateStr) { /* ... */ 
-    const newVal = 'A'; // Simplifié pour l'instant
+function toggleColumn(dateStr) {
+    const newVal = 'A';
     agents.forEach(agent => {
         if (!isWeekendOrHoliday(new Date(dateStr))) {
             if (!localChanges[agent]) localChanges[agent] = {};
@@ -213,26 +242,37 @@ function toggleColumn(dateStr) { /* ... */
 }
 
 function setHalfAbsent(cell, agent, dateStr) {
-    if (isWeekendOrHoliday(new Date(dateStr))) return;
     cell.textContent = '½ A';
     applyCellStyle(cell, '½ A');
     if (!localChanges[agent]) localChanges[agent] = {};
     localChanges[agent][dateStr] = '½ A';
 }
 
-// ==================== EXPORT EXCEL ====================
-function exportFullPlanning() {
-    alert("Export en cours...");
-    // Tu peux garder l'ancienne fonction d'export ou je te la redonne si besoin
+// ==================== AUTRES FONCTIONS ====================
+function resetChanges() {
+    if (confirm("Réinitialiser toutes les modifications ?")) {
+        localChanges = {};
+        buildTable();
+    }
 }
 
-// Utilitaires
-function getWeek(date) { /* ... */ }
-function isWeekendOrHoliday(date) { /* ... */ }
-function resetChanges() { /* ... */ }
+function exportFullPlanning() {
+    alert("Export complet non implémenté dans cette version.\nTu peux me demander le code d'export Excel si tu veux.");
+}
 
-document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate() - 7); buildTable(); };
-document.getElementById('btnNext').onclick = () => { currentMonday.setDate(currentMonday.getDate() + 7); buildTable(); };
+function toggleMenu() {
+    alert("Menu à implémenter");
+}
+
+// Navigation
+document.getElementById('btnPrev').onclick = () => {
+    currentMonday.setDate(currentMonday.getDate() - 7);
+    buildTable();
+};
+document.getElementById('btnNext').onclick = () => {
+    currentMonday.setDate(currentMonday.getDate() + 7);
+    buildTable();
+};
 
 window.onload = loadPlanning;
 </script>
