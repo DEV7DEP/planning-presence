@@ -120,7 +120,6 @@ function buildTable() {
     const tbody = document.getElementById('tableBody');
     thead.innerHTML = ''; tbody.innerHTML = '';
 
-    // Semaines
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `
         <th class="name-col"></th>
@@ -129,7 +128,6 @@ function buildTable() {
     `;
     thead.appendChild(weekRow);
 
-    // Jours
     const dayRow = document.createElement('tr');
     dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
     dates.forEach(date => {
@@ -141,7 +139,6 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Agents
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -185,7 +182,7 @@ function applyCellStyle(cell, value) {
 // ==================== INTERACTIONS ====================
 function toggleCell(cell, agent, dateStr, e) {
     if (e.ctrlKey || e.metaKey) {
-        toggleRowMondayToFriday(agent, dateStr);   // ← MODIFIÉ
+        toggleRowMondayToFriday(agent, dateStr);
         buildTable();
         return;
     }
@@ -203,28 +200,31 @@ function toggleCell(cell, agent, dateStr, e) {
     buildTable();
 }
 
-// ====================== NOUVELLE FONCTION ======================
-function toggleRowMondayToFriday(agent, dateStr) {
-    const targetDate = new Date(dateStr);
-    let monday = new Date(targetDate);
-    monday.setDate(monday.getDate() - (monday.getDay() || 7) + 1); // Forcer au lundi
+// ==================== CORRECTION CTRL+CLICK ====================
+function toggleRowMondayToFriday(agent, clickedDateStr) {
+    const clickedDate = new Date(clickedDateStr);
+    const dayOfWeek = clickedDate.getDay(); // 0=dim, 1=lun ... 6=sam
+
+    // Calcul du lundi de la semaine du jour cliqué
+    let monday = new Date(clickedDate);
+    monday.setDate(monday.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
 
     let allAbsent = true;
 
-    // On ne traite QUE Lundi → Vendredi
-    for (let i = 0; i < 5; i++) {                    // 0 = Lundi → 4 = Vendredi
+    // Vérifier si tous les jours du lundi au vendredi sont en A
+    for (let i = 0; i < 5; i++) {
         const d = new Date(monday);
         d.setDate(d.getDate() + i);
-        
         const ds = d.toISOString().split('T')[0];
         if ((localChanges[agent]?.[ds] || 'P') !== 'A') {
             allAbsent = false;
+            break;
         }
     }
 
     const newVal = allAbsent ? 'P' : 'A';
 
-    // Application uniquement Lundi → Vendredi
+    // Appliquer le changement uniquement du lundi au vendredi
     for (let i = 0; i < 5; i++) {
         const d = new Date(monday);
         d.setDate(d.getDate() + i);
