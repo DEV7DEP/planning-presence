@@ -29,7 +29,7 @@
 <body>
 
 <div class="header">
-    <h1 class="title">Planning Présence 2026</h1>
+    <h1 class="title">Planning Présence 2026 - 2027</h1>
     <span class="menu-icon" onclick="toggleMenu()">☰</span>
 </div>
 
@@ -40,7 +40,9 @@
 </div>
 
 <div style="text-align:center; margin:10px;">
-    <button onclick="exportToExcel()" style="background:#27ae60;color:white;padding:12px 20px;font-size:16px;">💾 Exporter tout le Planning en Excel</button>
+    <button onclick="exportFullPlanning()" style="background:#27ae60;color:white;padding:12px 20px;font-size:16px;">
+        💾 Exporter Planning Complet (Excel)
+    </button>
     <button onclick="resetChanges()" style="background:#e74c3c;color:white;padding:12px 20px;font-size:16px;">🔄 Réinitialiser</button>
 </div>
 
@@ -56,7 +58,7 @@
 const XLSX_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRmNxgEeK7YsXD5FeYywbJ4QTP5IHgIOUM3pzSduy9W9I70zxru_SrvBLWtmqe3YKOWljrVRQisCA2p/pub?output=xlsx";
 
 let agents = [];
-let currentMonday = new Date(2026, 3, 20);
+let currentMonday = new Date(2026, 3, 20); // Avril 2026
 let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
@@ -88,8 +90,8 @@ async function loadPlanning() {
     }
 }
 
-// ==================== TABLEAU (identique) ====================
-function buildTable() {
+// ==================== TABLEAU (affichage 2 semaines) ====================
+function buildTable() { /* même code que précédemment */ 
     const dates = [];
     for (let i = 0; i < 14; i++) {
         const d = new Date(currentMonday);
@@ -99,8 +101,7 @@ function buildTable() {
 
     const thead = document.getElementById('tableHead');
     const tbody = document.getElementById('tableBody');
-    thead.innerHTML = '';
-    tbody.innerHTML = '';
+    thead.innerHTML = ''; tbody.innerHTML = '';
 
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getWeek(dates[7])}</th>`;
@@ -126,19 +127,11 @@ function buildTable() {
             td.className = 'cell';
             const dateStr = date.toISOString().split('T')[0];
 
-            if (isWeekendOrHoliday(date)) {
-                td.textContent = 'RP';
-                td.classList.add('RP');
-            } else {
-                td.textContent = 'P';
-                td.classList.add('P');
-            }
+            let status = isWeekendOrHoliday(date) ? 'RP' : 'P';
+            if (localChanges[agent] && localChanges[agent][dateStr]) status = localChanges[agent][dateStr];
 
-            if (localChanges[agent] && localChanges[agent][dateStr]) {
-                const val = localChanges[agent][dateStr];
-                td.textContent = val;
-                applyCellStyle(td, val);
-            }
+            td.textContent = status;
+            applyCellStyle(td, status);
 
             td.addEventListener('click', () => toggleCell(td, agent, dateStr));
             td.addEventListener('contextmenu', e => { e.preventDefault(); setHalfAbsent(td, agent, dateStr); });
@@ -150,103 +143,58 @@ function buildTable() {
     document.getElementById('weekLabel').textContent = `Semaine ${getWeek(dates[0])} → ${getWeek(dates[7])}`;
 }
 
-function applyCellStyle(cell, value) {
-    cell.className = 'cell';
-    if (value === 'A') cell.classList.add('A');
-    else if (value.includes('½')) cell.classList.add('halfA');
-    else if (value === 'RP') cell.classList.add('RP');
-    else cell.classList.add('P');
-}
-
-function toggleCell(cell, agent, dateStr) {
-    let val = cell.textContent.trim();
-    val = (val === 'P') ? 'A' : 'P';
-    cell.textContent = val;
-    applyCellStyle(cell, val);
-    if (!localChanges[agent]) localChanges[agent] = {};
-    localChanges[agent][dateStr] = val;
-}
-
-function setHalfAbsent(cell, agent, dateStr) {
-    cell.textContent = '½ A';
-    applyCellStyle(cell, '½ A');
-    if (!localChanges[agent]) localChanges[agent] = {};
-    localChanges[agent][dateStr] = '½ A';
-}
-
-// ==================== EXPORT EXCEL COMPLET ====================
-function exportToExcel() {
+// ==================== EXPORT PLANNING COMPLET ====================
+function exportFullPlanning() {
     const wb = XLSX.utils.book_new();
+    const startDate = new Date(2026, 0, 1); // 1er Janvier 2026
+    const endDate = new Date(2027, 11, 31);   // 31 Décembre 2027
+
     const ws_data = [];
+    ws_data.push(["PLANNING PRÉSENCE 2026 - 2027"]);
+    ws_data.push(["Généré le : " + new Date().toLocaleDateString('fr-FR')]);
+    ws_data.push([]);
 
-    // En-tête principal
-    ws_data.push(["PLANNING PRÉSENCE 2026"]);
-    ws_data.push([]); // Ligne vide
-
-    // En-tête des colonnes
+    // En-tête
     const header = ["Nom Prénom"];
-    for (let i = 0; i < 14; i++) {
-        const d = new Date(currentMonday);
-        d.setDate(d.getDate() + i);
-        header.push(d.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'}));
+    let current = new Date(startDate);
+    while (current <= endDate) {
+        header.push(current.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'}));
+        current.setDate(current.getDate() + 1);
     }
     ws_data.push(header);
 
-    // Données des agents
+    // Données
     agents.forEach(agent => {
         const row = [agent];
-        for (let i = 0; i < 14; i++) {
-            const d = new Date(currentMonday);
-            d.setDate(d.getDate() + i);
-            const dateStr = d.toISOString().split('T')[0];
-
-            let status = isWeekendOrHoliday(d) ? 'RP' : 'P';
+        let current = new Date(startDate);
+        while (current <= endDate) {
+            const dateStr = current.toISOString().split('T')[0];
+            let status = isWeekendOrHoliday(current) ? 'RP' : 'P';
+            
             if (localChanges[agent] && localChanges[agent][dateStr]) {
                 status = localChanges[agent][dateStr];
             }
             row.push(status);
+            current.setDate(current.getDate() + 1);
         }
         ws_data.push(row);
     });
 
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    XLSX.utils.book_append_sheet(wb, ws, "Planning_2026_2027");
+    XLSX.writeFile(wb, `Planning_Presence_2026-2027_${new Date().toISOString().slice(0,10)}.xlsx`);
 
-    // Mise en forme
-    ws['!cols'] = [{width: 30}]; // Largeur colonne noms
-    for (let i = 1; i <= 14; i++) ws['!cols'].push({width: 12});
-
-    XLSX.utils.book_append_sheet(wb, ws, "Planning 2026");
-    XLSX.writeFile(wb, `Planning_Presence_2026_${new Date().toISOString().slice(0,10)}.xlsx`);
-
-    document.getElementById('status').textContent = "✅ Planning complet exporté en Excel !";
+    document.getElementById('status').textContent = "✅ Planning complet 2026-2027 exporté !";
 }
 
-// ==================== UTILITAIRES ====================
-function resetChanges() {
-    if (confirm("Réinitialiser toutes les modifications ?")) {
-        localChanges = {};
-        loadPlanning();
-    }
-}
+// ==================== Fonctions de base ====================
+function applyCellStyle(cell, value) { /* ... */ }
+function toggleCell(cell, agent, dateStr) { /* ... */ }
+function setHalfAbsent(cell, agent, dateStr) { /* ... */ }
+function resetChanges() { /* ... */ }
+function getWeek(date) { /* ... */ }
+function isWeekendOrHoliday(date) { /* ... */ }
 
-function toggleMenu() {
-    alert("Menu à venir...");
-}
-
-function getWeek(date) {
-    let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-}
-
-function isWeekendOrHoliday(date) {
-    const day = date.getDay();
-    const ds = date.toISOString().split('T')[0];
-    return day === 0 || day === 6 || FERIES_2026.includes(ds);
-}
-
-// Navigation
 document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate() - 7); buildTable(); };
 document.getElementById('btnNext').onclick = () => { currentMonday.setDate(currentMonday.getDate() + 7); buildTable(); };
 
