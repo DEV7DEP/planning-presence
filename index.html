@@ -38,7 +38,7 @@
 </div>
 <div style="text-align:center; margin:10px;">
     <button onclick="exportFullPlanning()" style="background:#27ae60;color:white;padding:12px 20px;font-size:16px;">
-        💾 Exporter Planning Complet (Excel)
+        💾 Exporter Planning Complet 2026 (Excel)
     </button>
     <button onclick="resetChanges()" style="background:#e74c3c;color:white;padding:12px 20px;font-size:16px;">🔄 Réinitialiser</button>
 </div>
@@ -77,8 +77,8 @@ function formatDateHeader(date) {
     return isWeekendOrHoliday(date) ? str + " (RP)" : str;
 }
 
-// ==================== CHARGEMENT ====================
-async function loadPlanning() {
+// ==================== CHARGEMENT & AFFICHAGE (2 semaines) ====================
+async function loadPlanning() { /* ... identique ... */
     const status = document.getElementById('status');
     status.textContent = "Chargement depuis Google Sheets...";
     try {
@@ -103,7 +103,7 @@ async function loadPlanning() {
     }
 }
 
-function buildTable() {
+function buildTable() { /* ... identique à la version précédente ... */
     const dates = [];
     for (let i = 0; i < 14; i++) {
         const d = new Date(currentMonday);
@@ -133,13 +133,11 @@ function buildTable() {
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
-
         dates.forEach(date => {
             const td = document.createElement('td');
             td.className = 'cell';
             const dateStr = date.toISOString().split('T')[0];
             const isRP = isWeekendOrHoliday(date);
-
             let status = isRP ? 'RP' : 'P';
             if (localChanges[agent]?.[dateStr]) status = localChanges[agent][dateStr];
 
@@ -148,10 +146,7 @@ function buildTable() {
 
             if (!isRP) {
                 td.addEventListener('click', () => toggleCell(td, agent, dateStr));
-                td.addEventListener('contextmenu', e => {
-                    e.preventDefault();
-                    setHalfAbsent(td, agent, dateStr);
-                });
+                td.addEventListener('contextmenu', e => { e.preventDefault(); setHalfAbsent(td, agent, dateStr); });
             }
             row.appendChild(td);
         });
@@ -169,7 +164,6 @@ function applyCellStyle(cell, value) {
     else cell.classList.add('P');
 }
 
-// ==================== CLIC SIMPLE ====================
 function toggleCell(cell, agent, dateStr) {
     const current = cell.textContent.trim();
     const newVal = (current === 'P') ? 'A' : 'P';
@@ -185,11 +179,12 @@ function setHalfAbsent(cell, agent, dateStr) {
     localChanges[agent][dateStr] = '½ A';
 }
 
-// ==================== EXPORT EXCEL (NOUVEAU) ====================
+// ==================== EXPORT EXCEL COMPLET 2026 (365 jours) ====================
 function exportFullPlanning() {
+    const startDate = new Date(2026, 0, 1); // 1er janvier 2026
     const dates = [];
-    for (let i = 0; i < 14; i++) {
-        const d = new Date(currentMonday);
+    for (let i = 0; i < 365; i++) {
+        const d = new Date(startDate);
         d.setDate(d.getDate() + i);
         dates.push(d);
     }
@@ -200,11 +195,11 @@ function exportFullPlanning() {
     // En-tête
     const header = ["Nom Prénom"];
     dates.forEach(date => {
-        header.push(date.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'}));
+        header.push(date.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'}));
     });
     ws_data.push(header);
 
-    // Données des agents
+    // Données agents
     agents.forEach(agent => {
         const row = [agent];
         dates.forEach(date => {
@@ -219,20 +214,21 @@ function exportFullPlanning() {
 
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
 
-    // Mise en forme basique
-    ws['!cols'] = [{wch: 30}]; // Largeur colonne Nom
-    for (let i = 1; i <= 14; i++) ws['!cols'].push({wch: 12});
+    // Ajustement largeur colonnes
+    ws['!cols'] = [{wch: 35}];
+    for (let i = 1; i <= 365; i++) {
+        ws['!cols'].push({wch: 8});
+    }
 
-    XLSX.utils.book_append_sheet(wb, ws, `Planning Sem ${getISOWeek(dates[0])}-${getISOWeek(dates[7])}`);
+    XLSX.utils.book_append_sheet(wb, ws, "Planning 2026 Complet");
 
-    // Téléchargement
-    const fileName = `Planning_Presence_${getISOWeek(dates[0])}-${getISOWeek(dates[7])}_${new Date().toISOString().slice(0,10)}.xlsx`;
+    const fileName = `Planning_Presence_2026_COMPLET_${new Date().toISOString().slice(0,10)}.xlsx`;
     XLSX.writeFile(wb, fileName);
 
-    alert("✅ Planning exporté avec succès !");
+    alert("✅ Planning COMPLET 2026 (365 jours) exporté avec succès !");
 }
 
-// ==================== AUTRES FONCTIONS ====================
+// ==================== AUTRES ====================
 function resetChanges() {
     if (confirm("Réinitialiser toutes les modifications ?")) {
         localChanges = {};
@@ -242,7 +238,6 @@ function resetChanges() {
 
 function toggleMenu() { alert("Menu à implémenter"); }
 
-// Navigation
 document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate() - 7); buildTable(); };
 document.getElementById('btnNext').onclick = () => { currentMonday.setDate(currentMonday.getDate() + 7); buildTable(); };
 
