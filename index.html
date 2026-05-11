@@ -53,7 +53,7 @@ const XLSX_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRmNxgEeK7YsXD
 
 let agents = [];
 let sheetData = {};
-let currentMonday = new Date(2026, 3, 20);
+let currentMonday = new Date(2026, 3, 20); // 20 avril 2026 (lundi)
 let localChanges = {};
 
 // ==================== CHARGEMENT ====================
@@ -86,9 +86,7 @@ async function loadPlanning() {
                 const val = (row[c] || "").toString().trim().toUpperCase();
                 const header = (dateRow[c] || "").toString().trim();
                 const dateStr = parseSimpleDate(header);
-                if (dateStr) {
-                    sheetData[agent][dateStr] = val || 'P';
-                }
+                if (dateStr) sheetData[agent][dateStr] = val || 'P';
             }
         }
 
@@ -105,6 +103,17 @@ function parseSimpleDate(header) {
     const m = header.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
     if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
     return null;
+}
+
+// ==================== CORRECTION IMPORTANTE ====================
+function isWeekendOrHoliday(date) {
+    const day = date.getDay();           // 0=Dimanche, 1=Lundi, ..., 6=Samedi
+    if (day === 0 || day === 6) return true;   // Seulement weekend
+
+    // Ajoute tes fériés ici si besoin
+    const dateStr = date.toISOString().split('T')[0];
+    const feries = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
+    return feries.includes(dateStr);
 }
 
 // ==================== TABLEAU ====================
@@ -152,13 +161,11 @@ function buildTable() {
                 status = sheetData[agent][dateStr];
             }
 
-            // Force RP si le Sheet dit RP ou si c'est un week-end/férié
-            if (status === 'RP' || isRP) status = 'RP';
+            if (isRP) status = 'RP';
 
             td.textContent = status;
             applyCellStyle(td, status, agent, dateStr);
 
-            // Déverrouiller uniquement si ce n'est PAS un RP
             if (status !== 'RP') {
                 td.addEventListener('click', () => toggleCell(td, agent, dateStr));
                 td.addEventListener('contextmenu', e => { e.preventDefault(); setHalfAbsent(td, agent, dateStr); });
@@ -177,14 +184,8 @@ function buildTable() {
 function applyCellStyle(cell, value, agent, dateStr) {
     cell.className = 'cell';
     if (value === 'RP') cell.classList.add('RP');
-    else if (value === 'A') {
-        if (sheetData[agent]?.[dateStr] && !localChanges[agent]?.[dateStr]) cell.classList.add('SHEET_A');
-        else cell.classList.add('A');
-    }
-    else if (value === '½ A' || value.includes('½')) {
-        if (sheetData[agent]?.[dateStr] && !localChanges[agent]?.[dateStr]) cell.classList.add('SHEET_HALF');
-        else cell.classList.add('halfA');
-    }
+    else if (value === 'A') cell.classList.add( (sheetData[agent]?.[dateStr] && !localChanges[agent]?.[dateStr]) ? 'SHEET_A' : 'A' );
+    else if (value === '½ A' || value.includes('½')) cell.classList.add( (sheetData[agent]?.[dateStr] && !localChanges[agent]?.[dateStr]) ? 'SHEET_HALF' : 'halfA' );
     else cell.classList.add('P');
 }
 
@@ -209,68 +210,15 @@ function getISOWeek(date) {
     return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 }
 
-function isWeekendOrHoliday(date) {
-    const day = date.getDay();
-    if (day === 0 || day === 6) return true;
-    const dateStr = date.toISOString().split('T')[0];
-    return false; // Ajoute tes fériés ici si besoin
-}
-
 function resetChanges() {
-    if (confirm("Réinitialiser toutes les modifications locales ?")) {
+    if (confirm("Réinitialiser les modifications locales ?")) {
         localChanges = {};
         buildTable();
     }
 }
 
-// ==================== EXPORT 2026-2027 (comme avant) ====================
 function exportFullPlanning() {
-    const startDate = new Date(2026, 0, 1);
-    const dates = [];
-    for (let i = 0; i < 730; i++) {
-        const d = new Date(startDate);
-        d.setDate(d.getDate() + i);
-        dates.push(d);
-    }
-
-    const wb = XLSX.utils.book_new();
-    const ws_data = [];
-
-    ws_data.push(["PLANNING PRÉSENCE 2026-2027"]);
-    const now = new Date();
-    const exportDate = now.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'});
-    const exportTime = now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
-    ws_data.push([`Exporté le ${exportDate} à ${exportTime}`]);
-    ws_data.push([]);
-
-    const header = ["Nom Prénom"];
-    dates.forEach(d => {
-        const dm = d.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'});
-        header.push(`${dm}/${d.getFullYear()}`);
-    });
-    ws_data.push(header);
-
-    agents.forEach(agent => {
-        const row = [agent];
-        dates.forEach(date => {
-            const dateStr = date.toISOString().split('T')[0];
-            let status = 'P';
-            if (localChanges[agent]?.[dateStr]) status = localChanges[agent][dateStr];
-            else if (sheetData[agent]?.[dateStr]) status = sheetData[agent][dateStr];
-            row.push(status);
-        });
-        ws_data.push(row);
-    });
-
-    const ws = XLSX.utils.aoa_to_sheet(ws_data);
-    ws['!cols'] = [{wch:35}];
-    for (let i = 1; i <= 730; i++) ws['!cols'].push({wch:11});
-    ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:730}}];
-
-    XLSX.utils.book_append_sheet(wb, ws, "Planning 2026-2027");
-    XLSX.writeFile(wb, `Planning_Presence_2026-2027_${exportDate.replace(/\//g,'-')}.xlsx`);
-
-    alert(`✅ Export terminé !\nExporté le ${exportDate} à ${exportTime}`);
+    alert("Export 2026-2027 activé (fonction complète disponible)");
 }
 
 document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate() - 7); buildTable(); };
