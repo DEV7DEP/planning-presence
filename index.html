@@ -22,14 +22,14 @@
         .A {background:#c62828; color:white;}
         .halfA {background:#ab47bc; color:white;}
         .RP {background:#95a5a6; color:white; cursor:default; pointer-events:none;}
-        .SHEET_A {background:#d35400; color:white; cursor:default; pointer-events:none; font-weight:bold;} /* Orange foncé */
+        .SHEET_A {background:#d35400; color:white; cursor:default; pointer-events:none; font-weight:bold;}
     </style>
 </head>
 <body>
 <div class="header">
     <h1 class="title">Planning Présence 2026-2027</h1>
 </div>
-<div class="nav" style="display:flex; justify-content:space-between; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;">
+<div style="display:flex; justify-content:space-between; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;">
     <button id="btnPrev">◄ Semaine précédente</button>
     <span id="weekLabel" style="font-size:22px; font-weight:bold;"></span>
     <button id="btnNext">Semaine suivante ►</button>
@@ -51,30 +51,29 @@
 const XLSX_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRmNxgEeK7YsXD5FeYywbJ4QTP5IHgIOUM3pzSduy9W9I70zxru_SrvBLWtmqe3YKOWljrVRQisCA2p/pub?output=xlsx";
 
 let agents = [];
-let sheetData = {};        // Données venant du Google Sheet
+let sheetData = {};
 let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
 
-// ==================== CHARGEMENT GOOGLE SHEET ====================
+// ==================== CHARGEMENT SIMPLIFIÉ ====================
 async function loadPlanning() {
     const status = document.getElementById('status');
-    status.textContent = "Chargement depuis Google Sheets...";
+    status.textContent = "Chargement du Google Sheet...";
 
     try {
-        const res = await fetch(XLSX_URL);
-        const ab = await res.arrayBuffer();
-        const wb = XLSX.read(ab, {type: 'array'});
-        const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1});
+        const response = await fetch(XLSX_URL);
+        const arrayBuffer = await response.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const data = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
 
         agents = [];
         sheetData = {};
 
-        // Lecture des dates (ligne 0 ou 1 selon ton sheet)
-        const dateRow = data[0];   // ← Ligne des dates (01/05/2026, etc.)
+        const dateRow = data[0]; // Ligne des dates
 
-        for (let r = 3; r < data.length; r++) {   // agents commencent vers la ligne 3-4
+        for (let r = 3; r < data.length; r++) {
             const row = data[r];
-            if (!row || !row[1]) continue;
+            if (!row || !row[1] || row[1].toString().trim() === "") continue;
 
             const nom = (row[1] || "").toString().trim();
             const prenom = (row[2] || "").toString().trim();
@@ -84,15 +83,15 @@ async function loadPlanning() {
             agents.push(agent);
             sheetData[agent] = {};
 
-            // Lecture des cellules à partir de la colonne C ou D
-            for (let c = 3; c < row.length && c < dateRow.length; c++) {
+            // Lecture des statuts
+            for (let c = 3; c < Math.min(row.length, dateRow.length); c++) {
                 const cellVal = (row[c] || "").toString().trim().toUpperCase();
                 const dateHeader = (dateRow[c] || "").toString().trim();
 
-                if (dateHeader) {
-                    const dateStr = parseDate(dateHeader);
+                if (dateHeader && cellVal) {
+                    const dateStr = parseSimpleDate(dateHeader);
                     if (dateStr) {
-                        sheetData[agent][dateStr] = cellVal || 'P';
+                        sheetData[agent][dateStr] = cellVal;
                     }
                 }
             }
@@ -100,20 +99,22 @@ async function loadPlanning() {
 
         status.textContent = `✅ ${agents.length} agents chargés`;
         buildTable();
-    } catch(e) {
-        status.textContent = "❌ Erreur de chargement";
+    } catch (e) {
         console.error(e);
+        status.innerHTML = `❌ Erreur de chargement<br><small>${e.message}</small>`;
     }
 }
 
-function parseDate(header) {
+function parseSimpleDate(header) {
     if (!header) return null;
-    const m = header.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
-    if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+    const match = header.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+    if (match) {
+        return `${match[3]}-${match[2].padStart(2,'0')}-${match[1].padStart(2,'0')}`;
+    }
     return null;
 }
 
-// ==================== CONSTRUCTION TABLEAU ====================
+// ==================== BUILD TABLE (simplifié) ====================
 function buildTable() {
     const dates = [];
     for (let i = 0; i < 14; i++) {
@@ -124,21 +125,22 @@ function buildTable() {
 
     const thead = document.getElementById('tableHead');
     const tbody = document.getElementById('tableBody');
-    thead.innerHTML = ''; tbody.innerHTML = '';
+    thead.innerHTML = ''; 
+    tbody.innerHTML = '';
 
-    // Semaines
+    // En-têtes semaines
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getISOWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getISOWeek(dates[7])}</th>`;
     thead.appendChild(weekRow);
 
-    // Jours
+    // En-têtes jours
     const dayRow = document.createElement('tr');
     dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
-    dates.forEach(d => {
+    dates.forEach(date => {
         const th = document.createElement('th');
         th.className = "day-header";
-        th.textContent = d.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'}) + (isWeekendOrHoliday(d) ? " (RP)" : "");
-        if (isWeekendOrHoliday(d)) th.style.background = '#95a5a6';
+        th.textContent = date.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'}) + (isWeekendOrHoliday(date) ? " (RP)" : "");
+        if (isWeekendOrHoliday(date)) th.style.background = '#95a5a6';
         dayRow.appendChild(th);
     });
     thead.appendChild(dayRow);
@@ -155,8 +157,6 @@ function buildTable() {
             const isRP = isWeekendOrHoliday(date);
 
             let status = isRP ? 'RP' : 'P';
-
-            // Priorité : Modification locale > Donnée du Sheet
             if (localChanges[agent]?.[dateStr]) {
                 status = localChanges[agent][dateStr];
             } else if (sheetData[agent]?.[dateStr]) {
@@ -166,7 +166,6 @@ function buildTable() {
             td.textContent = status;
             applyCellStyle(td, status);
 
-            // Verrouillage
             if (isRP || (status === 'A' && !localChanges[agent]?.[dateStr])) {
                 td.style.pointerEvents = 'none';
                 td.style.cursor = 'default';
@@ -184,7 +183,7 @@ function buildTable() {
 
 function applyCellStyle(cell, value) {
     cell.className = 'cell';
-    if (value === 'A') cell.classList.add('SHEET_A');      // Orange foncé verrouillé
+    if (value === 'A') cell.classList.add('SHEET_A');
     else if (value === '½ A') cell.classList.add('halfA');
     else if (value === 'RP') cell.classList.add('RP');
     else cell.classList.add('P');
@@ -205,7 +204,7 @@ function setHalfAbsent(cell, agent, dateStr) {
     localChanges[agent][dateStr] = '½ A';
 }
 
-function getISOWeek(date) { /* même fonction que avant */ 
+function getISOWeek(date) {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
@@ -216,20 +215,18 @@ function isWeekendOrHoliday(date) {
     const day = date.getDay();
     if (day === 0 || day === 6) return true;
     const dateStr = date.toISOString().split('T')[0];
-    return ALL_FERIES.includes(dateStr);   // à définir avec tes fériés
+    return false; // À compléter avec tes fériés si besoin
 }
 
-const ALL_FERIES = [... /* tes fériés 2026 + 2027 */ ];
-
 function resetChanges() {
-    if (confirm("Réinitialiser les modifications locales ?")) {
+    if (confirm("Réinitialiser les modifications ?")) {
         localChanges = {};
         buildTable();
     }
 }
 
-function exportFullPlanning() { /* ta fonction d'export précédente */ 
-    alert("Export fonctionnel (à remettre si besoin)");
+function exportFullPlanning() {
+    alert("Export en cours de développement...");
 }
 
 // Navigation
