@@ -12,7 +12,7 @@
         .menu-icon {position:absolute; right:25px; top:18px; font-size:34px; cursor:pointer; color:#1e40af;}
         
         .nav {display:flex; justify-content:space-between; align-items:center; background:#d0d7e0; padding:12px 20px; margin:10px 0; border-radius:6px;}
-        table {border-collapse:collapse; background:white; width:100%; box-shadow:0 4px 12px rgba(0,0,0,0.15); margin-top:10px;}
+        table {border-collapse:collapse; background:white; width:100%; box-shadow:0 4px 12px rgba(0,0,0,0.15);}
         th, td {border:1px solid #666; padding:8px; text-align:center; min-width:65px; font-size:14px;}
         .week-header {position:sticky; top:0; z-index:20; background:#d0d7e0 !important; color:black; height:45px; font-size:16px;}
         .day-header {position:sticky; top:45px; z-index:30; background:#4a90e2 !important; color:white; font-weight:bold;}
@@ -42,49 +42,40 @@
     <button id="btnNext">Semaine suivante ►</button>
 </div>
 
+<button onclick="saveToSheetDB()" style="background:#27ae60;color:white;padding:12px 20px;font-size:16px;margin:10px;">💾 Sauvegarder sur Google Sheet</button>
+
 <table id="planningTable">
     <thead id="tableHead"></thead>
     <tbody id="tableBody"></tbody>
 </table>
 
-<div class="menu-popup" id="menuPopup">
-    <button onclick="resetChanges()" style="background:#3498db;color:white;">🔄 Réinitialiser</button>
-    <button onclick="saveToGoogleSheet()" style="background:#27ae60;color:white;">💾 Sauvegarder</button>
-    <button onclick="toggleMenu()" style="background:#777;color:white;">Fermer</button>
-</div>
-
 <div style="text-align:center; margin:15px; color:#1e40af; font-weight:bold;" id="status">Chargement...</div>
 
 <script>
 // ==================== CONFIG ====================
-const XLSX_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRmNxgEeK7YsXD5FeYywbJ4QTP5IHgIOUM3pzSduy9W9I70zxru_SrvBLWtmqe3YKOWljrVRQisCA2p/pub?output=xlsx";
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzrCsp7-xjUv0XME66axlcUTtuCUx0ySTTf3x_dlMOXqTWnsZbjY6s3XdA00KjOdGP/exec";
-
+const SHEETDB_URL = "https://sheetdb.io/api/v1/5vojg7hx7xrmj";
 let agents = [];
 let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
 // ==================== CHARGEMENT ====================
-async function loadPlanningFromGoogleSheet() {
+async function loadPlanning() {
     const status = document.getElementById('status');
-    status.textContent = "Chargement depuis Google Sheets...";
+    status.textContent = "Chargement depuis SheetDB...";
    
     try {
-        const response = await fetch(XLSX_URL);
-        const arrayBuffer = await response.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-        const data = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+        const response = await fetch(SHEETDB_URL);
+        const data = await response.json();
 
         agents = [];
-        for (let i = 3; i < data.length; i++) {
-            const row = data[i];
-            if (row[1] && row[1].toString().trim() !== "") {
-                const nom = (row[1] || "").toString().trim();
-                const prenom = (row[2] || "").toString().trim();
-                agents.push(`${nom} ${prenom}`.trim());
+        // Adapter selon la structure de tes colonnes
+        data.forEach(row => {
+            if (row.Nom && row.Prénom) {
+                agents.push(`${row.Nom} ${row.Prénom}`.trim());
             }
-        }
+        });
+
         status.textContent = `✅ ${agents.length} agents chargés`;
         buildTable();
     } catch (e) {
@@ -107,12 +98,10 @@ function buildTable() {
     thead.innerHTML = '';
     tbody.innerHTML = '';
 
-    // Semaines
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getWeek(dates[7])}</th>`;
     thead.appendChild(weekRow);
 
-    // Jours
     const dayRow = document.createElement('tr');
     dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
     dates.forEach(date => {
@@ -124,7 +113,6 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Agents
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -183,47 +171,39 @@ function setHalfAbsent(cell, agent, dateStr) {
 }
 
 // ==================== SAUVEGARDE ====================
-async function saveToGoogleSheet() {
+async function saveToSheetDB() {
     if (Object.keys(localChanges).length === 0) {
         alert("Aucune modification à sauvegarder !");
         return;
     }
+
     const status = document.getElementById('status');
     status.textContent = "Sauvegarde en cours...";
+
     try {
-        const response = await fetch(APPS_SCRIPT_URL, {
-            method: 'POST',
+        // Pour SheetDB, on envoie les modifications
+        const response = await fetch(SHEETDB_URL, {
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ changes: localChanges })
+            body: JSON.stringify({ data: localChanges })
         });
-        const result = await response.text();
-        if (response.ok && result.includes("success")) {
+
+        if (response.ok) {
             status.textContent = "✅ Sauvegardé avec succès !";
             localChanges = {};
-            setTimeout(loadPlanningFromGoogleSheet, 1500);
+            setTimeout(loadPlanning, 1500);
         } else {
-            throw new Error(result);
+            throw new Error("Erreur SheetDB");
         }
     } catch (e) {
         console.error(e);
         status.textContent = "❌ Erreur de sauvegarde";
-        alert("Erreur lors de la sauvegarde");
+        alert("Erreur lors de la sauvegarde. Vérifie la console.");
     }
 }
 
-function resetChanges() {
-    if (confirm("Réinitialiser toutes les modifications locales ?")) {
-        localChanges = {};
-        loadPlanningFromGoogleSheet();
-    }
-}
-
-function toggleMenu() {
-    const menu = document.getElementById('menuPopup');
-    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
-}
-
-function getWeek(date) {
+// Utilitaires
+function getWeek(date) { /* même fonction que avant */ 
     let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
@@ -236,11 +216,15 @@ function isWeekendOrHoliday(date) {
     return day === 0 || day === 6 || FERIES_2026.includes(ds);
 }
 
+function toggleMenu() {
+    alert("Menu à venir...");
+}
+
 // Navigation
 document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate() - 7); buildTable(); };
 document.getElementById('btnNext').onclick = () => { currentMonday.setDate(currentMonday.getDate() + 7); buildTable(); };
 
-window.onload = loadPlanningFromGoogleSheet;
+window.onload = loadPlanning;
 </script>
 </body>
 </html>
