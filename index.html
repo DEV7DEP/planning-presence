@@ -40,7 +40,7 @@
 </div>
 
 <div style="text-align:center; margin:10px;">
-    <button onclick="exportToExcel()" style="background:#27ae60;color:white;padding:12px 20px;font-size:16px;">💾 Exporter vers Excel</button>
+    <button onclick="exportToExcel()" style="background:#27ae60;color:white;padding:12px 20px;font-size:16px;">💾 Exporter tout le Planning en Excel</button>
     <button onclick="resetChanges()" style="background:#e74c3c;color:white;padding:12px 20px;font-size:16px;">🔄 Réinitialiser</button>
 </div>
 
@@ -57,7 +57,7 @@ const XLSX_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRmNxgEeK7YsXD
 
 let agents = [];
 let currentMonday = new Date(2026, 3, 20);
-let localChanges = {};   // Sauvegarde locale des modifications
+let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
 // ==================== CHARGEMENT ====================
@@ -88,7 +88,7 @@ async function loadPlanning() {
     }
 }
 
-// ==================== CONSTRUCTION TABLEAU ====================
+// ==================== TABLEAU (identique) ====================
 function buildTable() {
     const dates = [];
     for (let i = 0; i < 14; i++) {
@@ -102,12 +102,10 @@ function buildTable() {
     thead.innerHTML = '';
     tbody.innerHTML = '';
 
-    // Semaines
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getWeek(dates[7])}</th>`;
     thead.appendChild(weekRow);
 
-    // Jours
     const dayRow = document.createElement('tr');
     dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
     dates.forEach(date => {
@@ -119,7 +117,6 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Agents
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -137,7 +134,6 @@ function buildTable() {
                 td.classList.add('P');
             }
 
-            // Appliquer modifications locales
             if (localChanges[agent] && localChanges[agent][dateStr]) {
                 const val = localChanges[agent][dateStr];
                 td.textContent = val;
@@ -178,21 +174,25 @@ function setHalfAbsent(cell, agent, dateStr) {
     localChanges[agent][dateStr] = '½ A';
 }
 
-// ==================== EXPORT EXCEL ====================
+// ==================== EXPORT EXCEL COMPLET ====================
 function exportToExcel() {
     const wb = XLSX.utils.book_new();
     const ws_data = [];
 
-    // En-tête
+    // En-tête principal
+    ws_data.push(["PLANNING PRÉSENCE 2026"]);
+    ws_data.push([]); // Ligne vide
+
+    // En-tête des colonnes
     const header = ["Nom Prénom"];
     for (let i = 0; i < 14; i++) {
         const d = new Date(currentMonday);
         d.setDate(d.getDate() + i);
-        header.push(d.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'}));
+        header.push(d.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'}));
     }
     ws_data.push(header);
 
-    // Données
+    // Données des agents
     agents.forEach(agent => {
         const row = [agent];
         for (let i = 0; i < 14; i++) {
@@ -200,8 +200,7 @@ function exportToExcel() {
             d.setDate(d.getDate() + i);
             const dateStr = d.toISOString().split('T')[0];
 
-            let status = 'P';
-            if (isWeekendOrHoliday(d)) status = 'RP';
+            let status = isWeekendOrHoliday(d) ? 'RP' : 'P';
             if (localChanges[agent] && localChanges[agent][dateStr]) {
                 status = localChanges[agent][dateStr];
             }
@@ -211,15 +210,20 @@ function exportToExcel() {
     });
 
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
-    XLSX.utils.book_append_sheet(wb, ws, "Planning 2026");
-    XLSX.writeFile(wb, `Planning_Presence_${new Date().toISOString().slice(0,10)}.xlsx`);
 
-    document.getElementById('status').textContent = "✅ Fichier Excel téléchargé !";
+    // Mise en forme
+    ws['!cols'] = [{width: 30}]; // Largeur colonne noms
+    for (let i = 1; i <= 14; i++) ws['!cols'].push({width: 12});
+
+    XLSX.utils.book_append_sheet(wb, ws, "Planning 2026");
+    XLSX.writeFile(wb, `Planning_Presence_2026_${new Date().toISOString().slice(0,10)}.xlsx`);
+
+    document.getElementById('status').textContent = "✅ Planning complet exporté en Excel !";
 }
 
-// ==================== AUTRES FONCTIONS ====================
+// ==================== UTILITAIRES ====================
 function resetChanges() {
-    if (confirm("Réinitialiser toutes les modifications locales ?")) {
+    if (confirm("Réinitialiser toutes les modifications ?")) {
         localChanges = {};
         loadPlanning();
     }
