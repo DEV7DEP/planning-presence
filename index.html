@@ -47,14 +47,14 @@
 
 <div class="menu-popup" id="menuPopup">
     <button onclick="resetChanges()" style="background:#3498db;color:white;">🔄 Réinitialiser</button>
-    <button onclick="saveToGoogleSheet()" style="background:#27ae60;color:white;">💾 Sauvegarder vers Google Sheets</button>
+    <button onclick="saveToGoogleSheet()" style="background:#27ae60;color:white;">💾 Sauvegarder</button>
     <button onclick="toggleMenu()" style="background:#777;color:white;">Fermer</button>
 </div>
 
 <div style="text-align:center; margin:15px; color:#1e40af; font-weight:bold;" id="status">Chargement...</div>
 
 <script>
-// ==================== CONFIGURATION ====================
+// ==================== CONFIG ====================
 const XLSX_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRmNxgEeK7YsXD5FeYywbJ4QTP5IHgIOUM3pzSduy9W9I70zxru_SrvBLWtmqe3YKOWljrVRQisCA2p/pub?output=xlsx";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzrCsp7-xjUv0XME66axlcUTtuCUx0ySTTf3x_dlMOXqTWnsZbjY6s3XdA00KjOdGP/exec";
 
@@ -63,7 +63,7 @@ let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
-// ==================== CHARGEMENT DES DONNÉES ====================
+// ==================== CHARGEMENT ====================
 async function loadPlanningFromGoogleSheet() {
     const status = document.getElementById('status');
     status.textContent = "Chargement depuis Google Sheets...";
@@ -91,7 +91,7 @@ async function loadPlanningFromGoogleSheet() {
     }
 }
 
-// ==================== CONSTRUCTION DU TABLEAU ====================
+// ==================== TABLEAU ====================
 function buildTable() {
     const dates = [];
     for (let i = 0; i < 14; i++) {
@@ -102,15 +102,12 @@ function buildTable() {
 
     const thead = document.getElementById('tableHead');
     const tbody = document.getElementById('tableBody');
-    thead.innerHTML = '';
-    tbody.innerHTML = '';
+    thead.innerHTML = ''; tbody.innerHTML = '';
 
-    // En-tête semaines
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getWeek(dates[7])}</th>`;
     thead.appendChild(weekRow);
 
-    // En-tête jours
     const dayRow = document.createElement('tr');
     dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
     dates.forEach(date => {
@@ -122,7 +119,6 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Lignes des agents
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -133,11 +129,9 @@ function buildTable() {
             const dateStr = date.toISOString().split('T')[0];
 
             if (isWeekendOrHoliday(date)) {
-                td.textContent = 'RP';
-                td.classList.add('RP');
+                td.textContent = 'RP'; td.classList.add('RP');
             } else {
-                td.textContent = 'P';
-                td.classList.add('P');
+                td.textContent = 'P'; td.classList.add('P');
             }
 
             if (localChanges[agent] && localChanges[agent][dateStr]) {
@@ -159,14 +153,14 @@ function buildTable() {
 function applyCellStyle(cell, value) {
     cell.className = 'cell';
     if (value === 'A') cell.classList.add('A');
-    else if (value.includes('½') || value === '½ A') cell.classList.add('halfA');
+    else if (value.includes('½')) cell.classList.add('halfA');
     else if (value === 'RP') cell.classList.add('RP');
     else cell.classList.add('P');
 }
 
 function toggleCell(cell, agent, dateStr) {
     let val = cell.textContent.trim();
-    val = (val === 'P' || val === '½ A') ? 'A' : 'P';
+    val = (val === 'P') ? 'A' : 'P';
     cell.textContent = val;
     applyCellStyle(cell, val);
     if (!localChanges[agent]) localChanges[agent] = {};
@@ -183,7 +177,7 @@ function setHalfAbsent(cell, agent, dateStr) {
 // ==================== SAUVEGARDE ====================
 async function saveToGoogleSheet() {
     if (Object.keys(localChanges).length === 0) {
-        alert("Aucune modification à sauvegarder !");
+        alert("Aucune modification !");
         return;
     }
 
@@ -202,19 +196,19 @@ async function saveToGoogleSheet() {
         if (response.ok && result.includes("success")) {
             status.textContent = "✅ Sauvegardé avec succès !";
             localChanges = {};
-            setTimeout(loadPlanningFromGoogleSheet, 1500);
+            setTimeout(loadPlanningFromGoogleSheet, 1200);
         } else {
             throw new Error(result);
         }
     } catch (e) {
         console.error(e);
         status.textContent = "❌ Erreur de sauvegarde";
-        alert("Erreur lors de la sauvegarde :\n" + e.message + "\n\nVérifie que l'Apps Script est bien déployé en mode 'Tout le monde'.");
+        alert("Failed to fetch\n\nVérifie que le déploiement est en mode 'Tout le monde'");
     }
 }
 
 function resetChanges() {
-    if (confirm("Réinitialiser toutes les modifications locales ?")) {
+    if (confirm("Réinitialiser les modifications ?")) {
         localChanges = {};
         loadPlanningFromGoogleSheet();
     }
