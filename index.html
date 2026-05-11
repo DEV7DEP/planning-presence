@@ -77,8 +77,8 @@ function formatDateHeader(date) {
     return isWeekendOrHoliday(date) ? str + " (RP)" : str;
 }
 
-// ==================== CHARGEMENT & TABLEAU (inchangé) ====================
-async function loadPlanning() { /* ... même code que précédemment ... */ 
+// ==================== CHARGEMENT ====================
+async function loadPlanning() {
     const status = document.getElementById('status');
     status.textContent = "Chargement depuis Google Sheets...";
     try {
@@ -103,7 +103,7 @@ async function loadPlanning() { /* ... même code que précédemment ... */
     }
 }
 
-function buildTable() { /* ... même code que la version précédente ... */
+function buildTable() {
     const dates = [];
     for (let i = 0; i < 14; i++) {
         const d = new Date(currentMonday);
@@ -166,7 +166,7 @@ function applyCellStyle(cell, value) {
     else cell.classList.add('P');
 }
 
-// ==================== CTRL + CLIC CORRIGÉ ====================
+// ==================== CTRL + CLIC (VERSION FINALE) ====================
 function toggleCell(cell, agent, dateStr, e) {
     if (e.ctrlKey || e.metaKey) {
         toggleRowMondayToFriday(agent, dateStr);
@@ -179,6 +179,7 @@ function toggleCell(cell, agent, dateStr, e) {
         return;
     }
 
+    // Clic normal
     const current = cell.textContent.trim();
     const newVal = (current === 'P') ? 'A' : 'P';
     if (!localChanges[agent]) localChanges[agent] = {};
@@ -189,15 +190,27 @@ function toggleCell(cell, agent, dateStr, e) {
 function toggleRowMondayToFriday(agent, clickedDateStr) {
     let date = new Date(clickedDateStr);
     
-    // Décalage -1 comme demandé + calcul robuste du lundi
-    date.setDate(date.getDate() - 1);                    // ← Décalage suggéré
+    // Calcul fiable du lundi de la semaine
     const day = date.getDay();
-    const diff = day === 0 ? 6 : day - 1;
-    date.setDate(date.getDate() - diff);                 // On va au lundi
+    const diffToMonday = day === 0 ? 6 : day - 1;
+    date.setDate(date.getDate() - diffToMonday);
 
-    const newVal = 'A';   // On passe en Absent (tu peux changer en toggle si tu veux)
+    // Vérifier si tous les jours du lundi au vendredi sont déjà en A
+    let allAbsent = true;
+    for (let i = 0; i < 5; i++) {
+        const d = new Date(date);
+        d.setDate(d.getDate() + i);
+        const ds = d.toISOString().split('T')[0];
+        if ((localChanges[agent]?.[ds] || 'P') !== 'A') {
+            allAbsent = false;
+            break;
+        }
+    }
 
-    for (let i = 0; i < 5; i++) {   // Uniquement Lundi → Vendredi
+    const newVal = allAbsent ? 'P' : 'A';
+
+    // Appliquer uniquement lundi → vendredi
+    for (let i = 0; i < 5; i++) {
         const d = new Date(date);
         d.setDate(d.getDate() + i);
         const ds = d.toISOString().split('T')[0];
@@ -207,7 +220,6 @@ function toggleRowMondayToFriday(agent, clickedDateStr) {
     }
 }
 
-// Autres fonctions
 function toggleColumn(dateStr) {
     agents.forEach(agent => {
         if (!isWeekendOrHoliday(new Date(dateStr))) {
