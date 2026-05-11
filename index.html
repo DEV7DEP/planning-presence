@@ -52,22 +52,12 @@
 // ==================== CONFIG ====================
 const XLSX_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRmNxgEeK7YsXD5FeYywbJ4QTP5IHgIOUM3pzSduy9W9I70zxru_SrvBLWtmqe3YKOWljrVRQisCA2p/pub?output=xlsx";
 let agents = [];
-let currentMonday = new Date(2026, 3, 20); // 20 avril 2026
+let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
 
-// Liste complète des jours fériés 2026 en France (nationaux)
 const FERIES_2026 = [
-    "2026-01-01", // Jour de l'an
-    "2026-04-06", // Lundi de Pâques
-    "2026-05-01", // Fête du Travail
-    "2026-05-08", // Victoire 1945
-    "2026-05-14", // Ascension
-    "2026-05-25", // Lundi de Pentecôte
-    "2026-07-14", // Fête nationale
-    "2026-08-15", // Assomption
-    "2026-11-01", // Toussaint
-    "2026-11-11", // Armistice 1918
-    "2026-12-25"  // Noël
+    "2026-01-01","2026-04-06","2026-05-01","2026-05-08","2026-05-14",
+    "2026-05-25","2026-07-14","2026-08-15","2026-11-01","2026-11-11","2026-12-25"
 ];
 
 // ==================== UTILITAIRES ====================
@@ -75,29 +65,25 @@ function getISOWeek(date) {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-    return weekNo;
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 }
 
 function isWeekendOrHoliday(date) {
     const day = date.getDay();
-    if (day === 0 || day === 6) return true; // Week-end
-
+    if (day === 0 || day === 6) return true;
     const dateStr = date.toISOString().split('T')[0];
     return FERIES_2026.includes(dateStr);
 }
 
 function formatDateHeader(date) {
     const str = date.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'});
-    if (isWeekendOrHoliday(date)) return str + " (RP)";
-    return str;
+    return isWeekendOrHoliday(date) ? str + " (RP)" : str;
 }
 
-// ==================== CHARGEMENT & TABLEAU ====================
+// ==================== CHARGEMENT ====================
 async function loadPlanning() {
     const status = document.getElementById('status');
     status.textContent = "Chargement depuis Google Sheets...";
-  
     try {
         const response = await fetch(XLSX_URL);
         const arrayBuffer = await response.arrayBuffer();
@@ -121,6 +107,7 @@ async function loadPlanning() {
     }
 }
 
+// ==================== TABLEAU ====================
 function buildTable() {
     const dates = [];
     for (let i = 0; i < 14; i++) {
@@ -131,10 +118,9 @@ function buildTable() {
 
     const thead = document.getElementById('tableHead');
     const tbody = document.getElementById('tableBody');
-    thead.innerHTML = '';
-    tbody.innerHTML = '';
+    thead.innerHTML = ''; tbody.innerHTML = '';
 
-    // Ligne Semaines
+    // Semaines
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `
         <th class="name-col"></th>
@@ -143,7 +129,7 @@ function buildTable() {
     `;
     thead.appendChild(weekRow);
 
-    // Ligne Jours
+    // Jours
     const dayRow = document.createElement('tr');
     dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
     dates.forEach(date => {
@@ -155,7 +141,7 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Lignes Agents
+    // Agents
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -167,9 +153,7 @@ function buildTable() {
             const isRP = isWeekendOrHoliday(date);
 
             let status = isRP ? 'RP' : 'P';
-            if (localChanges[agent] && localChanges[agent][dateStr]) {
-                status = localChanges[agent][dateStr];
-            }
+            if (localChanges[agent]?.[dateStr]) status = localChanges[agent][dateStr];
 
             td.textContent = status;
             applyCellStyle(td, status);
@@ -198,10 +182,18 @@ function applyCellStyle(cell, value) {
     else cell.classList.add('P');
 }
 
-// ==================== INTERACTIONS (inchangées) ====================
+// ==================== INTERACTIONS ====================
 function toggleCell(cell, agent, dateStr, e) {
-    if (e.ctrlKey || e.metaKey) { toggleRow(agent, dateStr); buildTable(); return; }
-    if (e.altKey) { toggleColumn(dateStr); buildTable(); return; }
+    if (e.ctrlKey || e.metaKey) {
+        toggleRowMondayToFriday(agent, dateStr);   // ← MODIFIÉ
+        buildTable();
+        return;
+    }
+    if (e.altKey) {
+        toggleColumn(dateStr);
+        buildTable();
+        return;
+    }
 
     const current = cell.textContent.trim();
     const newVal = (current === 'P') ? 'A' : 'P';
@@ -211,30 +203,35 @@ function toggleCell(cell, agent, dateStr, e) {
     buildTable();
 }
 
-function toggleRow(agent, dateStr) { /* même code que précédemment */ 
+// ====================== NOUVELLE FONCTION ======================
+function toggleRowMondayToFriday(agent, dateStr) {
     const targetDate = new Date(dateStr);
-    const startOfWeek = new Date(targetDate);
-    startOfWeek.setDate(startOfWeek.getDate() - (startOfWeek.getDay() || 7) + 1); // Lundi
+    let monday = new Date(targetDate);
+    monday.setDate(monday.getDate() - (monday.getDay() || 7) + 1); // Forcer au lundi
 
     let allAbsent = true;
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(startOfWeek);
+
+    // On ne traite QUE Lundi → Vendredi
+    for (let i = 0; i < 5; i++) {                    // 0 = Lundi → 4 = Vendredi
+        const d = new Date(monday);
         d.setDate(d.getDate() + i);
-        if (!isWeekendOrHoliday(d)) {
-            const ds = d.toISOString().split('T')[0];
-            if ((localChanges[agent]?.[ds] || 'P') !== 'A') allAbsent = false;
+        
+        const ds = d.toISOString().split('T')[0];
+        if ((localChanges[agent]?.[ds] || 'P') !== 'A') {
+            allAbsent = false;
         }
     }
 
     const newVal = allAbsent ? 'P' : 'A';
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(startOfWeek);
+
+    // Application uniquement Lundi → Vendredi
+    for (let i = 0; i < 5; i++) {
+        const d = new Date(monday);
         d.setDate(d.getDate() + i);
-        if (!isWeekendOrHoliday(d)) {
-            const ds = d.toISOString().split('T')[0];
-            if (!localChanges[agent]) localChanges[agent] = {};
-            localChanges[agent][ds] = newVal;
-        }
+        const ds = d.toISOString().split('T')[0];
+
+        if (!localChanges[agent]) localChanges[agent] = {};
+        localChanges[agent][ds] = newVal;
     }
 }
 
@@ -265,9 +262,7 @@ function exportFullPlanning() {
     alert("Export complet non implémenté.\nDis-moi si tu veux que je l'ajoute.");
 }
 
-function toggleMenu() {
-    alert("Menu à implémenter");
-}
+function toggleMenu() { alert("Menu à implémenter"); }
 
 // Navigation
 document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate() - 7); buildTable(); };
