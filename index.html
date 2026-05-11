@@ -67,7 +67,7 @@ function getISOWeek(date) {
 
 function isWeekendOrHoliday(date) {
     const day = date.getDay();
-    if (day === 0 || day === 6) return true;
+    if (day === 0 || day === 6) return true;           // Week-end seulement
     const dateStr = date.toISOString().split('T')[0];
     return FERIES_2026.includes(dateStr);
 }
@@ -134,7 +134,7 @@ function buildTable() {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
 
-        dates.forEach(date => {
+        dates.forEach((date, index) => {
             const td = document.createElement('td');
             td.className = 'cell';
             const dateStr = date.toISOString().split('T')[0];
@@ -146,9 +146,14 @@ function buildTable() {
             td.textContent = status;
             applyCellStyle(td, status);
 
+            // === IMPORTANT : on force les événements même sur lundi ===
             if (!isRP) {
+                td.style.cursor = 'pointer';
                 td.addEventListener('click', (e) => toggleCell(td, agent, dateStr, e));
-                td.addEventListener('contextmenu', e => { e.preventDefault(); setHalfAbsent(td, agent, dateStr); });
+                td.addEventListener('contextmenu', e => {
+                    e.preventDefault();
+                    setHalfAbsent(td, agent, dateStr);
+                });
             }
             row.appendChild(td);
         });
@@ -166,7 +171,7 @@ function applyCellStyle(cell, value) {
     else cell.classList.add('P');
 }
 
-// ==================== CTRL + CLIC (VERSION FINALE) ====================
+// ==================== INTERACTIONS ====================
 function toggleCell(cell, agent, dateStr, e) {
     if (e.ctrlKey || e.metaKey) {
         toggleRowMondayToFriday(agent, dateStr);
@@ -179,7 +184,6 @@ function toggleCell(cell, agent, dateStr, e) {
         return;
     }
 
-    // Clic normal
     const current = cell.textContent.trim();
     const newVal = (current === 'P') ? 'A' : 'P';
     if (!localChanges[agent]) localChanges[agent] = {};
@@ -189,13 +193,10 @@ function toggleCell(cell, agent, dateStr, e) {
 
 function toggleRowMondayToFriday(agent, clickedDateStr) {
     let date = new Date(clickedDateStr);
-    
-    // Calcul fiable du lundi de la semaine
     const day = date.getDay();
-    const diffToMonday = day === 0 ? 6 : day - 1;
+    const diffToMonday = (day === 0 ? 6 : day - 1);
     date.setDate(date.getDate() - diffToMonday);
 
-    // Vérifier si tous les jours du lundi au vendredi sont déjà en A
     let allAbsent = true;
     for (let i = 0; i < 5; i++) {
         const d = new Date(date);
@@ -209,12 +210,10 @@ function toggleRowMondayToFriday(agent, clickedDateStr) {
 
     const newVal = allAbsent ? 'P' : 'A';
 
-    // Appliquer uniquement lundi → vendredi
     for (let i = 0; i < 5; i++) {
         const d = new Date(date);
         d.setDate(d.getDate() + i);
         const ds = d.toISOString().split('T')[0];
-        
         if (!localChanges[agent]) localChanges[agent] = {};
         localChanges[agent][ds] = newVal;
     }
