@@ -19,11 +19,11 @@
        
         .cell {cursor:pointer; font-weight:bold; height:52px; user-select:none;}
         .P {background:#c1e1c1; color:black;}
-        .A {background:#c62828; color:white;}                    /* Rouge = A modifié */
-        .halfA {background:#8e44ad; color:white;}                /* Violet = ½ A modifié */
+        .A {background:#c62828; color:white;}
+        .halfA {background:#8e44ad; color:white;}
         .RP {background:#95a5a6; color:white; cursor:default; pointer-events:none;}
-        .SHEET_A {background:#d35400; color:white; cursor:default; pointer-events:none;}   /* Orange = A du Sheet */
-        .SHEET_HALF {background:#2c3e50; color:white; cursor:default; pointer-events:none;} /* Bleu dark = ½ A du Sheet */
+        .SHEET_A {background:#d35400; color:white; cursor:default; pointer-events:none;}
+        .SHEET_HALF {background:#2c3e50; color:white; cursor:default; pointer-events:none;}
     </style>
 </head>
 <body>
@@ -86,8 +86,8 @@ async function loadPlanning() {
                 const val = (row[c] || "").toString().trim().toUpperCase();
                 const header = (dateRow[c] || "").toString().trim();
                 const dateStr = parseSimpleDate(header);
-                if (dateStr && val) {
-                    sheetData[agent][dateStr] = val;
+                if (dateStr) {
+                    sheetData[agent][dateStr] = val || 'P';
                 }
             }
         }
@@ -107,7 +107,7 @@ function parseSimpleDate(header) {
     return null;
 }
 
-// ==================== TABLEAU ====================
+// ==================== CONSTRUCTION ====================
 function buildTable() {
     const dates = [];
     for (let i = 0; i < 14; i++) {
@@ -118,7 +118,8 @@ function buildTable() {
 
     const thead = document.getElementById('tableHead');
     const tbody = document.getElementById('tableBody');
-    thead.innerHTML = ''; tbody.innerHTML = '';
+    thead.innerHTML = ''; 
+    tbody.innerHTML = '';
 
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getISOWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getISOWeek(dates[7])}</th>`;
@@ -143,21 +144,28 @@ function buildTable() {
             const td = document.createElement('td');
             td.className = 'cell';
             const dateStr = date.toISOString().split('T')[0];
-            const isRP = isWeekendOrHoliday(date);
+            const isRPWeekend = isWeekendOrHoliday(date);
 
-            let status = isRP ? 'RP' : 'P';
+            let status = 'P';
+
+            // Priorité : Local > Sheet > Défaut P
             if (localChanges[agent]?.[dateStr]) {
                 status = localChanges[agent][dateStr];
             } else if (sheetData[agent]?.[dateStr]) {
                 status = sheetData[agent][dateStr];
             }
 
+            // Si le Sheet dit RP → on force RP
+            if (status === 'RP' || isRPWeekend) {
+                status = 'RP';
+            }
+
             td.textContent = status;
             applyCellStyle(td, status, agent, dateStr);
 
-            // Verrouillage uniquement pour les données venant du Sheet
-            const isSheetData = sheetData[agent]?.[dateStr] && !localChanges[agent]?.[dateStr];
-            if (isRP || isSheetData) {
+            // Verrouillage
+            const isLockedFromSheet = (sheetData[agent]?.[dateStr] && !localChanges[agent]?.[dateStr]);
+            if (status === 'RP' || isLockedFromSheet) {
                 td.style.pointerEvents = 'none';
                 td.style.cursor = 'default';
             } else {
@@ -174,21 +182,15 @@ function buildTable() {
 
 function applyCellStyle(cell, value, agent, dateStr) {
     cell.className = 'cell';
-    if (value === 'A') {
-        if (sheetData[agent]?.[dateStr] && !localChanges[agent]?.[dateStr]) {
-            cell.classList.add('SHEET_A');      // Orange (Sheet)
-        } else {
-            cell.classList.add('A');            // Rouge (modifié)
-        }
-    } 
+    if (value === 'RP') cell.classList.add('RP');
+    else if (value === 'A') {
+        if (sheetData[agent]?.[dateStr] && !localChanges[agent]?.[dateStr]) cell.classList.add('SHEET_A');
+        else cell.classList.add('A');
+    }
     else if (value === '½ A' || value.includes('½')) {
-        if (sheetData[agent]?.[dateStr] && !localChanges[agent]?.[dateStr]) {
-            cell.classList.add('SHEET_HALF');   // Bleu dark (Sheet)
-        } else {
-            cell.classList.add('halfA');        // Violet (modifié)
-        }
-    } 
-    else if (value === 'RP') cell.classList.add('RP');
+        if (sheetData[agent]?.[dateStr] && !localChanges[agent]?.[dateStr]) cell.classList.add('SHEET_HALF');
+        else cell.classList.add('halfA');
+    }
     else cell.classList.add('P');
 }
 
@@ -226,8 +228,7 @@ function resetChanges() {
 }
 
 function exportFullPlanning() {
-    alert("Export complet activé (2026-2027)");
-    // Tu peux remettre ta fonction d'export ici
+    alert("Export activé");
 }
 
 document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate() - 7); buildTable(); };
