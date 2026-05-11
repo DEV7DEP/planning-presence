@@ -77,8 +77,8 @@ function formatDateHeader(date) {
     return isWeekendOrHoliday(date) ? str + " (RP)" : str;
 }
 
-// ==================== CHARGEMENT & AFFICHAGE (2 semaines) ====================
-async function loadPlanning() { /* ... identique ... */
+// ==================== CHARGEMENT & TABLEAU ====================
+async function loadPlanning() {
     const status = document.getElementById('status');
     status.textContent = "Chargement depuis Google Sheets...";
     try {
@@ -103,7 +103,7 @@ async function loadPlanning() { /* ... identique ... */
     }
 }
 
-function buildTable() { /* ... identique à la version précédente ... */
+function buildTable() {
     const dates = [];
     for (let i = 0; i < 14; i++) {
         const d = new Date(currentMonday);
@@ -179,9 +179,9 @@ function setHalfAbsent(cell, agent, dateStr) {
     localChanges[agent][dateStr] = '½ A';
 }
 
-// ==================== EXPORT EXCEL COMPLET 2026 (365 jours) ====================
+// ==================== EXPORT EXCEL AVEC ANNÉE SUR CHAQUE DATE ====================
 function exportFullPlanning() {
-    const startDate = new Date(2026, 0, 1); // 1er janvier 2026
+    const startDate = new Date(2026, 0, 1);
     const dates = [];
     for (let i = 0; i < 365; i++) {
         const d = new Date(startDate);
@@ -192,10 +192,23 @@ function exportFullPlanning() {
     const wb = XLSX.utils.book_new();
     const ws_data = [];
 
-    // En-tête
+    // Ligne 1 : Titre
+    ws_data.push(["PLANNING PRÉSENCE 2026"]);
+
+    // Ligne 2 : Date et heure d'export
+    const now = new Date();
+    const exportDate = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const exportTime = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    ws_data.push([`Exporté le ${exportDate} à ${exportTime}`]);
+
+    ws_data.push([]); // Ligne vide
+
+    // === EN-TÊTE avec année ===
     const header = ["Nom Prénom"];
     dates.forEach(date => {
-        header.push(date.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'}));
+        // Format : JJ/MM/2026
+        const dayMonth = date.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'});
+        header.push(dayMonth + "/2026");
     });
     ws_data.push(header);
 
@@ -214,18 +227,19 @@ function exportFullPlanning() {
 
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
 
-    // Ajustement largeur colonnes
+    // Largeur colonnes
     ws['!cols'] = [{wch: 35}];
-    for (let i = 1; i <= 365; i++) {
-        ws['!cols'].push({wch: 8});
-    }
+    for (let i = 1; i <= 365; i++) ws['!cols'].push({wch: 10});
+
+    // Fusion titre
+    ws['!merges'] = [{ s: {r:0, c:0}, e: {r:0, c:365} }];
 
     XLSX.utils.book_append_sheet(wb, ws, "Planning 2026 Complet");
 
-    const fileName = `Planning_Presence_2026_COMPLET_${new Date().toISOString().slice(0,10)}.xlsx`;
+    const fileName = `Planning_Presence_2026_COMPLET_${exportDate.replace(/\//g, '-')}.xlsx`;
     XLSX.writeFile(wb, fileName);
 
-    alert("✅ Planning COMPLET 2026 (365 jours) exporté avec succès !");
+    alert(`✅ Planning 2026 exporté avec succès !\nExporté le ${exportDate} à ${exportTime}`);
 }
 
 // ==================== AUTRES ====================
