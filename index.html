@@ -40,15 +40,13 @@
     <button id="btnNext">Semaine suivante ►</button>
 </div>
 
-<div class="main-content">
-    <table id="planningTable">
-        <thead id="tableHead"></thead>
-        <tbody id="tableBody"></tbody>
-    </table>
-</div>
+<table id="planningTable">
+    <thead id="tableHead"></thead>
+    <tbody id="tableBody"></tbody>
+</table>
 
 <div class="menu-popup" id="menuPopup">
-    <button onclick="resetChanges()" style="background:#3498db;color:white;">🔄 Réinitialiser les modifications</button>
+    <button onclick="resetChanges()" style="background:#3498db;color:white;">🔄 Réinitialiser</button>
     <button onclick="saveToGoogleSheet()" style="background:#27ae60;color:white;">💾 Sauvegarder vers Google Sheets</button>
     <button onclick="toggleMenu()" style="background:#777;color:white;">Fermer</button>
 </div>
@@ -58,15 +56,14 @@
 <script>
 // ==================== CONFIGURATION ====================
 const XLSX_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRmNxgEeK7YsXD5FeYywbJ4QTP5IHgIOUM3pzSduy9W9I70zxru_SrvBLWtmqe3YKOWljrVRQisCA2p/pub?output=xlsx";
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzrCsp7-xjUv0XME66axlcUTtuCUx0ySTTf3x_dlMOXqTWnsZbjY6s3XdA00KjOdGP/exec"; // ← À REMPLACER
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzrCsp7-xjUv0XME66axlcUTtuCUx0ySTTf3x_dlMOXqTWnsZbjY6s3XdA00KjOdGP/exec";
 
 let agents = [];
-let currentMonday = new Date(2026, 3, 20); // 20 avril 2026
+let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
-
 const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25"];
 
-// ==================== CHARGEMENT ====================
+// ==================== CHARGEMENT DES DONNÉES ====================
 async function loadPlanningFromGoogleSheet() {
     const status = document.getElementById('status');
     status.textContent = "Chargement depuis Google Sheets...";
@@ -94,7 +91,7 @@ async function loadPlanningFromGoogleSheet() {
     }
 }
 
-// ==================== CONSTRUCTION TABLEAU ====================
+// ==================== CONSTRUCTION DU TABLEAU ====================
 function buildTable() {
     const dates = [];
     for (let i = 0; i < 14; i++) {
@@ -108,12 +105,12 @@ function buildTable() {
     thead.innerHTML = '';
     tbody.innerHTML = '';
 
-    // Semaines
+    // En-tête semaines
     const weekRow = document.createElement('tr');
     weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getWeek(dates[7])}</th>`;
     thead.appendChild(weekRow);
 
-    // Jours
+    // En-tête jours
     const dayRow = document.createElement('tr');
     dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
     dates.forEach(date => {
@@ -125,7 +122,7 @@ function buildTable() {
     });
     thead.appendChild(dayRow);
 
-    // Lignes agents
+    // Lignes des agents
     agents.forEach(agent => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-col">${agent}</td>`;
@@ -143,7 +140,6 @@ function buildTable() {
                 td.classList.add('P');
             }
 
-            // Appliquer changements locaux
             if (localChanges[agent] && localChanges[agent][dateStr]) {
                 const val = localChanges[agent][dateStr];
                 td.textContent = val;
@@ -163,17 +159,16 @@ function buildTable() {
 function applyCellStyle(cell, value) {
     cell.className = 'cell';
     if (value === 'A') cell.classList.add('A');
-    else if (value.includes('½') || value.includes('1/2')) cell.classList.add('halfA');
+    else if (value.includes('½') || value === '½ A') cell.classList.add('halfA');
     else if (value === 'RP') cell.classList.add('RP');
     else cell.classList.add('P');
 }
 
 function toggleCell(cell, agent, dateStr) {
     let val = cell.textContent.trim();
-    val = (val === 'P') ? 'A' : 'P';
+    val = (val === 'P' || val === '½ A') ? 'A' : 'P';
     cell.textContent = val;
     applyCellStyle(cell, val);
-
     if (!localChanges[agent]) localChanges[agent] = {};
     localChanges[agent][dateStr] = val;
 }
@@ -205,7 +200,7 @@ async function saveToGoogleSheet() {
         const result = await response.text();
 
         if (response.ok && result.includes("success")) {
-            status.textContent = "✅ Sauvegardé avec succès dans Google Sheets !";
+            status.textContent = "✅ Sauvegardé avec succès !";
             localChanges = {};
             setTimeout(loadPlanningFromGoogleSheet, 1500);
         } else {
@@ -214,7 +209,7 @@ async function saveToGoogleSheet() {
     } catch (e) {
         console.error(e);
         status.textContent = "❌ Erreur de sauvegarde";
-        alert("Erreur lors de la sauvegarde :\n" + e.message);
+        alert("Erreur lors de la sauvegarde :\n" + e.message + "\n\nVérifie que l'Apps Script est bien déployé en mode 'Tout le monde'.");
     }
 }
 
@@ -230,7 +225,6 @@ function toggleMenu() {
     menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
 }
 
-// ==================== UTILITAIRES ====================
 function getWeek(date) {
     let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
@@ -245,14 +239,8 @@ function isWeekendOrHoliday(date) {
 }
 
 // Navigation
-document.getElementById('btnPrev').onclick = () => { 
-    currentMonday.setDate(currentMonday.getDate() - 7); 
-    buildTable(); 
-};
-document.getElementById('btnNext').onclick = () => { 
-    currentMonday.setDate(currentMonday.getDate() + 7); 
-    buildTable(); 
-};
+document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate() - 7); buildTable(); };
+document.getElementById('btnNext').onclick = () => { currentMonday.setDate(currentMonday.getDate() + 7); buildTable(); };
 
 window.onload = loadPlanningFromGoogleSheet;
 </script>
