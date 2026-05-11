@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planning Présence 2026</title>
+    <title>Planning Présence 2026-2027</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {font-family: Calibri, Arial, sans-serif; background:#f0f0f0; margin:0; padding:10px;}
@@ -28,7 +28,7 @@
 </head>
 <body>
 <div class="header">
-    <h1 class="title">Planning Présence 2026</h1>
+    <h1 class="title">Planning Présence 2026-2027</h1>
     <span class="menu-icon" onclick="toggleMenu()">☰</span>
 </div>
 <div class="nav">
@@ -38,7 +38,7 @@
 </div>
 <div style="text-align:center; margin:10px;">
     <button onclick="exportFullPlanning()" style="background:#27ae60;color:white;padding:12px 20px;font-size:16px;">
-        💾 Exporter Planning Complet 2026 (Excel)
+        💾 Exporter Planning Complet 2026-2027 (Excel)
     </button>
     <button onclick="resetChanges()" style="background:#e74c3c;color:white;padding:12px 20px;font-size:16px;">🔄 Réinitialiser</button>
 </div>
@@ -56,28 +56,19 @@ let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
 
 const FERIES_2026 = ["2026-01-01","2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25","2026-07-14","2026-08-15","2026-11-01","2026-11-11","2026-12-25"];
+const FERIES_2027 = ["2027-01-01","2027-04-05","2027-05-01","2027-05-08","2027-05-13","2027-05-24","2027-07-14","2027-08-15","2027-11-01","2027-11-11","2027-12-25"];
+
+const ALL_FERIES = [...FERIES_2026, ...FERIES_2027];
 
 // ==================== UTILITAIRES ====================
-function getISOWeek(date) {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-}
-
 function isWeekendOrHoliday(date) {
     const day = date.getDay();
     if (day === 0 || day === 6) return true;
     const dateStr = date.toISOString().split('T')[0];
-    return FERIES_2026.includes(dateStr);
+    return ALL_FERIES.includes(dateStr);
 }
 
-function formatDateHeader(date) {
-    const str = date.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'});
-    return isWeekendOrHoliday(date) ? str + " (RP)" : str;
-}
-
-// ==================== CHARGEMENT & TABLEAU ====================
+// ==================== CHARGEMENT & TABLEAU (2 semaines) ====================
 async function loadPlanning() {
     const status = document.getElementById('status');
     status.textContent = "Chargement depuis Google Sheets...";
@@ -124,7 +115,7 @@ function buildTable() {
     dates.forEach(date => {
         const th = document.createElement('th');
         th.className = "day-header";
-        th.textContent = formatDateHeader(date);
+        th.textContent = date.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'}) + (isWeekendOrHoliday(date) ? " (RP)" : "");
         if (isWeekendOrHoliday(date)) th.style.background = '#95a5a6';
         dayRow.appendChild(th);
     });
@@ -156,6 +147,13 @@ function buildTable() {
     document.getElementById('weekLabel').textContent = `Semaine ${getISOWeek(dates[0])} → ${getISOWeek(dates[7])}`;
 }
 
+function getISOWeek(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
 function applyCellStyle(cell, value) {
     cell.className = 'cell';
     if (value === 'A') cell.classList.add('A');
@@ -179,11 +177,11 @@ function setHalfAbsent(cell, agent, dateStr) {
     localChanges[agent][dateStr] = '½ A';
 }
 
-// ==================== EXPORT EXCEL AVEC ANNÉE SUR CHAQUE DATE ====================
+// ==================== EXPORT 2026 + 2027 ====================
 function exportFullPlanning() {
     const startDate = new Date(2026, 0, 1);
     const dates = [];
-    for (let i = 0; i < 365; i++) {
+    for (let i = 0; i < 730; i++) {   // 365*2
         const d = new Date(startDate);
         d.setDate(d.getDate() + i);
         dates.push(d);
@@ -193,7 +191,7 @@ function exportFullPlanning() {
     const ws_data = [];
 
     // Ligne 1 : Titre
-    ws_data.push(["PLANNING PRÉSENCE 2026"]);
+    ws_data.push(["PLANNING PRÉSENCE 2026-2027"]);
 
     // Ligne 2 : Date et heure d'export
     const now = new Date();
@@ -203,16 +201,16 @@ function exportFullPlanning() {
 
     ws_data.push([]); // Ligne vide
 
-    // === EN-TÊTE avec année ===
+    // En-tête avec année complète
     const header = ["Nom Prénom"];
     dates.forEach(date => {
-        // Format : JJ/MM/2026
         const dayMonth = date.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'});
-        header.push(dayMonth + "/2026");
+        const year = date.getFullYear();
+        header.push(`${dayMonth}/${year}`);
     });
     ws_data.push(header);
 
-    // Données agents
+    // Données
     agents.forEach(agent => {
         const row = [agent];
         dates.forEach(date => {
@@ -227,19 +225,17 @@ function exportFullPlanning() {
 
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
 
-    // Largeur colonnes
     ws['!cols'] = [{wch: 35}];
-    for (let i = 1; i <= 365; i++) ws['!cols'].push({wch: 10});
+    for (let i = 1; i <= 730; i++) ws['!cols'].push({wch: 11});
 
-    // Fusion titre
-    ws['!merges'] = [{ s: {r:0, c:0}, e: {r:0, c:365} }];
+    ws['!merges'] = [{ s: {r:0, c:0}, e: {r:0, c:730} }];
 
-    XLSX.utils.book_append_sheet(wb, ws, "Planning 2026 Complet");
+    XLSX.utils.book_append_sheet(wb, ws, "Planning 2026-2027");
 
-    const fileName = `Planning_Presence_2026_COMPLET_${exportDate.replace(/\//g, '-')}.xlsx`;
+    const fileName = `Planning_Presence_2026-2027_COMPLET_${exportDate.replace(/\//g, '-')}.xlsx`;
     XLSX.writeFile(wb, fileName);
 
-    alert(`✅ Planning 2026 exporté avec succès !\nExporté le ${exportDate} à ${exportTime}`);
+    alert(`✅ Planning 2026-2027 exporté avec succès !\nExporté le ${exportDate} à ${exportTime}`);
 }
 
 // ==================== AUTRES ====================
