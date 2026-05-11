@@ -55,10 +55,7 @@ let agents = [];
 let currentMonday = new Date(2026, 3, 20);
 let localChanges = {};
 
-const FERIES_2026 = [
-    "2026-01-01","2026-04-06","2026-05-01","2026-05-08","2026-05-14",
-    "2026-05-25","2026-07-14","2026-08-15","2026-11-01","2026-11-11","2026-12-25"
-];
+const FERIES_2026 = ["2026-01-01","2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25","2026-07-14","2026-08-15","2026-11-01","2026-11-11","2026-12-25"];
 
 // ==================== UTILITAIRES ====================
 function getISOWeek(date) {
@@ -80,8 +77,8 @@ function formatDateHeader(date) {
     return isWeekendOrHoliday(date) ? str + " (RP)" : str;
 }
 
-// ==================== CHARGEMENT ====================
-async function loadPlanning() {
+// ==================== CHARGEMENT & TABLEAU (inchangé) ====================
+async function loadPlanning() { /* ... même code que précédemment ... */ 
     const status = document.getElementById('status');
     status.textContent = "Chargement depuis Google Sheets...";
     try {
@@ -89,7 +86,6 @@ async function loadPlanning() {
         const arrayBuffer = await response.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         const data = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
-        
         agents = [];
         for (let i = 3; i < data.length; i++) {
             const row = data[i];
@@ -107,8 +103,7 @@ async function loadPlanning() {
     }
 }
 
-// ==================== TABLEAU ====================
-function buildTable() {
+function buildTable() { /* ... même code que la version précédente ... */
     const dates = [];
     for (let i = 0; i < 14; i++) {
         const d = new Date(currentMonday);
@@ -121,11 +116,7 @@ function buildTable() {
     thead.innerHTML = ''; tbody.innerHTML = '';
 
     const weekRow = document.createElement('tr');
-    weekRow.innerHTML = `
-        <th class="name-col"></th>
-        <th colspan="7" class="week-header">Semaine ${getISOWeek(dates[0])}</th>
-        <th colspan="7" class="week-header">Semaine ${getISOWeek(dates[7])}</th>
-    `;
+    weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getISOWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getISOWeek(dates[7])}</th>`;
     thead.appendChild(weekRow);
 
     const dayRow = document.createElement('tr');
@@ -157,18 +148,14 @@ function buildTable() {
 
             if (!isRP) {
                 td.addEventListener('click', (e) => toggleCell(td, agent, dateStr, e));
-                td.addEventListener('contextmenu', e => {
-                    e.preventDefault();
-                    setHalfAbsent(td, agent, dateStr);
-                });
+                td.addEventListener('contextmenu', e => { e.preventDefault(); setHalfAbsent(td, agent, dateStr); });
             }
             row.appendChild(td);
         });
         tbody.appendChild(row);
     });
 
-    document.getElementById('weekLabel').textContent = 
-        `Semaine ${getISOWeek(dates[0])} → ${getISOWeek(dates[7])}`;
+    document.getElementById('weekLabel').textContent = `Semaine ${getISOWeek(dates[0])} → ${getISOWeek(dates[7])}`;
 }
 
 function applyCellStyle(cell, value) {
@@ -179,7 +166,7 @@ function applyCellStyle(cell, value) {
     else cell.classList.add('P');
 }
 
-// ==================== INTERACTIONS ====================
+// ==================== CTRL + CLIC CORRIGÉ ====================
 function toggleCell(cell, agent, dateStr, e) {
     if (e.ctrlKey || e.metaKey) {
         toggleRowMondayToFriday(agent, dateStr);
@@ -194,47 +181,33 @@ function toggleCell(cell, agent, dateStr, e) {
 
     const current = cell.textContent.trim();
     const newVal = (current === 'P') ? 'A' : 'P';
-
     if (!localChanges[agent]) localChanges[agent] = {};
     localChanges[agent][dateStr] = newVal;
     buildTable();
 }
 
-// ==================== CORRECTION CTRL+CLICK ====================
 function toggleRowMondayToFriday(agent, clickedDateStr) {
-    const clickedDate = new Date(clickedDateStr);
-    const dayOfWeek = clickedDate.getDay(); // 0=dim, 1=lun ... 6=sam
+    let date = new Date(clickedDateStr);
+    
+    // Décalage -1 comme demandé + calcul robuste du lundi
+    date.setDate(date.getDate() - 1);                    // ← Décalage suggéré
+    const day = date.getDay();
+    const diff = day === 0 ? 6 : day - 1;
+    date.setDate(date.getDate() - diff);                 // On va au lundi
 
-    // Calcul du lundi de la semaine du jour cliqué
-    let monday = new Date(clickedDate);
-    monday.setDate(monday.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    const newVal = 'A';   // On passe en Absent (tu peux changer en toggle si tu veux)
 
-    let allAbsent = true;
-
-    // Vérifier si tous les jours du lundi au vendredi sont en A
-    for (let i = 0; i < 5; i++) {
-        const d = new Date(monday);
+    for (let i = 0; i < 5; i++) {   // Uniquement Lundi → Vendredi
+        const d = new Date(date);
         d.setDate(d.getDate() + i);
         const ds = d.toISOString().split('T')[0];
-        if ((localChanges[agent]?.[ds] || 'P') !== 'A') {
-            allAbsent = false;
-            break;
-        }
-    }
-
-    const newVal = allAbsent ? 'P' : 'A';
-
-    // Appliquer le changement uniquement du lundi au vendredi
-    for (let i = 0; i < 5; i++) {
-        const d = new Date(monday);
-        d.setDate(d.getDate() + i);
-        const ds = d.toISOString().split('T')[0];
-
+        
         if (!localChanges[agent]) localChanges[agent] = {};
         localChanges[agent][ds] = newVal;
     }
 }
 
+// Autres fonctions
 function toggleColumn(dateStr) {
     agents.forEach(agent => {
         if (!isWeekendOrHoliday(new Date(dateStr))) {
@@ -258,13 +231,9 @@ function resetChanges() {
     }
 }
 
-function exportFullPlanning() {
-    alert("Export complet non implémenté.\nDis-moi si tu veux que je l'ajoute.");
-}
-
+function exportFullPlanning() { alert("Export non implémenté"); }
 function toggleMenu() { alert("Menu à implémenter"); }
 
-// Navigation
 document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate() - 7); buildTable(); };
 document.getElementById('btnNext').onclick = () => { currentMonday.setDate(currentMonday.getDate() + 7); buildTable(); };
 
