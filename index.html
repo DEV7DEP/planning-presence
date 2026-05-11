@@ -51,7 +51,7 @@
 <script>
 // ==================== CONFIG SUPABASE ====================
 const SUPABASE_URL = "https://wuvbebvzzmpponwagntr.supabase.co/rest/v1/";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1dmJlYnZ6em1wcG9ud2FnbnRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTMxNTUsImV4cCI6MjA5NDA2OTE1NX0.ao1OuZGRVImG952bBHWc6hdixJRjxXp9DC-WmpizmBY";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1dmJlYnZ6em1wcG9ud2FnbnRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTMxNTUsImV4cCI6MjA5NDA2OTE1NX0.ao1OuZGRVImG952bBHWc6hdixJRjxXp9DC-WmpizmBY";
 
 let agents = [];
 let currentMonday = new Date(2026, 3, 20);
@@ -61,10 +61,9 @@ const FERIES_2026 = ["2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-0
 // ==================== CHARGEMENT ====================
 async function loadPlanning() {
     const status = document.getElementById('status');
-    status.textContent = "Chargement depuis Supabase...";
-
+    status.textContent = "Chargement...";
+   
     try {
-        // Pour l'instant on charge depuis le Google Sheet public
         const XLSX_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRmNxgEeK7YsXD5FeYywbJ4QTP5IHgIOUM3pzSduy9W9I70zxru_SrvBLWtmqe3YKOWljrVRQisCA2p/pub?output=xlsx";
         const response = await fetch(XLSX_URL);
         const arrayBuffer = await response.arrayBuffer();
@@ -88,25 +87,159 @@ async function loadPlanning() {
     }
 }
 
-// ==================== Build Table, Toggle, etc. (même que avant) ====================
-function buildTable() { /* ... même code que les versions précédentes ... */ 
-    // Je peux le remettre complet si tu veux, mais pour l'instant utilise ta version qui marchait
-    console.log("Tableau construit avec", agents.length, "agents");
+// ==================== CONSTRUCTION TABLEAU ====================
+function buildTable() {
+    const dates = [];
+    for (let i = 0; i < 14; i++) {
+        const d = new Date(currentMonday);
+        d.setDate(d.getDate() + i);
+        dates.push(d);
+    }
+
+    const thead = document.getElementById('tableHead');
+    const tbody = document.getElementById('tableBody');
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    const weekRow = document.createElement('tr');
+    weekRow.innerHTML = `<th class="name-col"></th><th colspan="7" class="week-header">Semaine ${getWeek(dates[0])}</th><th colspan="7" class="week-header">Semaine ${getWeek(dates[7])}</th>`;
+    thead.appendChild(weekRow);
+
+    const dayRow = document.createElement('tr');
+    dayRow.innerHTML = `<th class="name-header">Nom Prénom</th>`;
+    dates.forEach(date => {
+        const th = document.createElement('th');
+        th.className = "day-header";
+        th.textContent = date.toLocaleDateString('fr-FR', {weekday:'short', day:'2-digit', month:'2-digit'});
+        if (isWeekendOrHoliday(date)) th.style.background = '#95a5a6';
+        dayRow.appendChild(th);
+    });
+    thead.appendChild(dayRow);
+
+    agents.forEach(agent => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td class="name-col">${agent}</td>`;
+
+        dates.forEach(date => {
+            const td = document.createElement('td');
+            td.className = 'cell';
+            const dateStr = date.toISOString().split('T')[0];
+
+            if (isWeekendOrHoliday(date)) {
+                td.textContent = 'RP';
+                td.classList.add('RP');
+            } else {
+                td.textContent = 'P';
+                td.classList.add('P');
+            }
+
+            if (localChanges[agent] && localChanges[agent][dateStr]) {
+                const val = localChanges[agent][dateStr];
+                td.textContent = val;
+                applyCellStyle(td, val);
+            }
+
+            td.addEventListener('click', () => toggleCell(td, agent, dateStr));
+            td.addEventListener('contextmenu', e => { e.preventDefault(); setHalfAbsent(td, agent, dateStr); });
+            row.appendChild(td);
+        });
+        tbody.appendChild(row);
+    });
+
+    document.getElementById('weekLabel').textContent = `Semaine ${getWeek(dates[0])} → ${getWeek(dates[7])}`;
 }
 
-// Ajoute ici les fonctions : applyCellStyle, toggleCell, setHalfAbsent, getWeek, isWeekendOrHoliday...
+function applyCellStyle(cell, value) {
+    cell.className = 'cell';
+    if (value === 'A') cell.classList.add('A');
+    else if (value.includes('½')) cell.classList.add('halfA');
+    else if (value === 'RP') cell.classList.add('RP');
+    else cell.classList.add('P');
+}
 
+function toggleCell(cell, agent, dateStr) {
+    let val = cell.textContent.trim();
+    val = (val === 'P') ? 'A' : 'P';
+    cell.textContent = val;
+    applyCellStyle(cell, val);
+    if (!localChanges[agent]) localChanges[agent] = {};
+    localChanges[agent][dateStr] = val;
+}
+
+function setHalfAbsent(cell, agent, dateStr) {
+    cell.textContent = '½ A';
+    applyCellStyle(cell, '½ A');
+    if (!localChanges[agent]) localChanges[agent] = {};
+    localChanges[agent][dateStr] = '½ A';
+}
+
+// ==================== SAUVEGARDE SUPABASE ====================
 async function saveToSupabase() {
     if (Object.keys(localChanges).length === 0) {
-        alert("Aucune modification !");
+        alert("Aucune modification à sauvegarder !");
         return;
     }
-    document.getElementById('status').textContent = "Sauvegarde en cours...";
-    // Code de sauvegarde Supabase à venir après création de la table
-    alert("Fonction de sauvegarde prête (à finaliser après création de la table)");
+
+    const status = document.getElementById('status');
+    status.textContent = "Sauvegarde en cours...";
+
+    try {
+        const updates = [];
+        Object.keys(localChanges).forEach(agent => {
+            Object.keys(localChanges[agent]).forEach(dateStr => {
+                updates.push({
+                    agent: agent,
+                    date: dateStr,
+                    status: localChanges[agent][dateStr]
+                });
+            });
+        });
+
+        const response = await fetch(SUPABASE_URL + "presence", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify(updates)
+        });
+
+        if (response.ok) {
+            status.textContent = "✅ Sauvegardé avec succès sur Supabase !";
+            localChanges = {};
+            setTimeout(loadPlanning, 1500);
+        } else {
+            throw new Error("Erreur sauvegarde");
+        }
+    } catch (e) {
+        console.error(e);
+        status.textContent = "❌ Erreur de sauvegarde";
+        alert("Erreur lors de la sauvegarde. Vérifie la console (F12)");
+    }
 }
 
-// Navigation...
+// ==================== UTILITAIRES ====================
+function getWeek(date) {
+    let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+function isWeekendOrHoliday(date) {
+    const day = date.getDay();
+    const ds = date.toISOString().split('T')[0];
+    return day === 0 || day === 6 || FERIES_2026.includes(ds);
+}
+
+function toggleMenu() { alert("Menu à venir..."); }
+
+// Navigation
+document.getElementById('btnPrev').onclick = () => { currentMonday.setDate(currentMonday.getDate() - 7); buildTable(); };
+document.getElementById('btnNext').onclick = () => { currentMonday.setDate(currentMonday.getDate() + 7); buildTable(); };
+
 window.onload = loadPlanning;
 </script>
 </body>
